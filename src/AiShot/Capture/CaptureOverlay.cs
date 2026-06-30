@@ -14,21 +14,6 @@ namespace AiShot.Capture;
 public sealed class CaptureOverlay : Form
 {
     private enum Mode { Selecting, Editing }
-    private enum Tool { None, Pen, Arrow, Line, Rect, Ellipse, Text }
-
-    private enum Handle { None, TL, T, TR, R, BR, B, BL, L, Move }
-
-    private sealed class Shape
-    {
-        public Tool Tool;
-        public Color Color;
-        public int Thickness;
-        public Point A, B;
-        public List<Point>? Points;   // pen
-        public string? TextValue;     // text
-    }
-
-    private sealed record IconButton(Rectangle Rect, string Glyph, string Id, bool Active, string Tip);
 
     private readonly Bitmap _background;
     private readonly ICaptureServices _services;
@@ -38,7 +23,7 @@ public sealed class CaptureOverlay : Form
     private Rectangle _sel;
     private Point _dragStart;
     private bool _dragging;
-    private Handle _activeHandle = Handle.None;
+    private ResizeHandle _activeHandle = ResizeHandle.None;
     private Rectangle _selAtDragStart;
 
     private readonly List<Shape> _shapes = new();
@@ -150,8 +135,8 @@ public sealed class CaptureOverlay : Form
         foreach (var b in _sideButtons)
             if (b.Rect.Contains(e.Location)) { OnSideAction(b.Id, b.Rect); return; }
 
-        var h = HitHandle(e.Location);
-        if (h != Handle.None)
+        var h = SelectionGeometry.HitHandle(_sel, e.Location);
+        if (h != ResizeHandle.None)
         {
             _activeHandle = h;
             _selAtDragStart = _sel;
@@ -164,7 +149,7 @@ public sealed class CaptureOverlay : Form
         {
             if (_tool == Tool.None) // mover seleção
             {
-                _activeHandle = Handle.Move;
+                _activeHandle = ResizeHandle.Move;
                 _selAtDragStart = _sel;
                 _dragStart = e.Location;
                 _dragging = true;
@@ -187,7 +172,7 @@ public sealed class CaptureOverlay : Form
     {
         if (_mode == Mode.Selecting && _dragging)
         {
-            _sel = Normalize(_dragStart, e.Location);
+            _sel = SelectionGeometry.Normalize(_dragStart, e.Location);
             Invalidate();
             return;
         }
@@ -197,9 +182,9 @@ public sealed class CaptureOverlay : Form
             UpdateCursor(e.Location);
             UpdateHoverTip(e.Location);
 
-            if (_dragging && _activeHandle != Handle.None)
+            if (_dragging && _activeHandle != ResizeHandle.None)
             {
-                ResizeOrMove(e.Location);
+                _sel = SelectionGeometry.ResizeOrMove(_activeHandle, _selAtDragStart, _dragStart, e.Location, _sel);
                 Invalidate();
                 return;
             }
@@ -234,11 +219,11 @@ public sealed class CaptureOverlay : Form
             _dragging = false;
             if (_drawing is not null)
             {
-                if (IsShapeValid(_drawing)) _shapes.Add(_drawing);
+                if (ShapeRenderer.IsValid(_drawing)) _shapes.Add(_drawing);
                 _drawing = null;
             }
-            _activeHandle = Handle.None;
-            ClampSelection();
+            _activeHandle = ResizeHandle.None;
+            _sel = SelectionGeometry.Clamp(_sel, new Size(Width, Height));
             Invalidate();
         }
         base.OnMouseUp(e);
@@ -531,78 +516,20 @@ public sealed class CaptureOverlay : Form
         _textInput = null;
     }
 
-    // ---------- Geometria seleção ----------
-    private static Rectangle Normalize(Point a, Point b) =>
-        Rectangle.FromLTRB(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y));
-
-    private Rectangle[] HandleRects()
-    {
-        int s = 9, h = s / 2;
-        var r = _sel;
-        Point[] pts =
-        {
-            new(r.Left, r.Top), new(r.Left + r.Width / 2, r.Top), new(r.Right, r.Top),
-            new(r.Right, r.Top + r.Height / 2), new(r.Right, r.Bottom),
-            new(r.Left + r.Width / 2, r.Bottom), new(r.Left, r.Bottom), new(r.Left, r.Top + r.Height / 2),
-        };
-        return pts.Select(p => new Rectangle(p.X - h, p.Y - h, s, s)).ToArray();
-    }
-
-    private Handle HitHandle(Point p)
-    {
-        var rects = HandleRects();
-        Handle[] order = { Handle.TL, Handle.T, Handle.TR, Handle.R, Handle.BR, Handle.B, Handle.BL, Handle.L };
-        for (int i = 0; i < rects.Length; i++)
-            if (rects[i].Contains(p)) return order[i];
-        return Handle.None;
-    }
-
-    private void ResizeOrMove(Point now)
-    {
-        int dx = now.X - _dragStart.X, dy = now.Y - _dragStart.Y;
-        var r = _selAtDragStart;
-        switch (_activeHandle)
-        {
-            case Handle.Move: r.Offset(dx, dy); break;
-            case Handle.TL: r = Rectangle.FromLTRB(r.Left + dx, r.Top + dy, r.Right, r.Bottom); break;
-            case Handle.T: r = Rectangle.FromLTRB(r.Left, r.Top + dy, r.Right, r.Bottom); break;
-            case Handle.TR: r = Rectangle.FromLTRB(r.Left, r.Top + dy, r.Right + dx, r.Bottom); break;
-            case Handle.R: r = Rectangle.FromLTRB(r.Left, r.Top, r.Right + dx, r.Bottom); break;
-            case Handle.BR: r = Rectangle.FromLTRB(r.Left, r.Top, r.Right + dx, r.Bottom + dy); break;
-            case Handle.B: r = Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom + dy); break;
-            case Handle.BL: r = Rectangle.FromLTRB(r.Left + dx, r.Top, r.Right, r.Bottom + dy); break;
-            case Handle.L: r = Rectangle.FromLTRB(r.Left + dx, r.Top, r.Right, r.Bottom); break;
-        }
-        if (r.Width >= 16 && r.Height >= 16) _sel = r;
-    }
-
-    private void ClampSelection()
-    {
-        var r = _sel;
-        r.X = Math.Max(0, Math.Min(r.X, Width - r.Width));
-        r.Y = Math.Max(0, Math.Min(r.Y, Height - r.Height));
-        _sel = r;
-    }
-
+    // ---------- Cursor ----------
     private void UpdateCursor(Point p)
     {
         if (_tool != Tool.None) { Cursor = Cursors.Cross; return; }
-        var h = HitHandle(p);
+        var h = SelectionGeometry.HitHandle(_sel, p);
         Cursor = h switch
         {
-            Handle.TL or Handle.BR => Cursors.SizeNWSE,
-            Handle.TR or Handle.BL => Cursors.SizeNESW,
-            Handle.T or Handle.B => Cursors.SizeNS,
-            Handle.L or Handle.R => Cursors.SizeWE,
+            ResizeHandle.TL or ResizeHandle.BR => Cursors.SizeNWSE,
+            ResizeHandle.TR or ResizeHandle.BL => Cursors.SizeNESW,
+            ResizeHandle.T or ResizeHandle.B => Cursors.SizeNS,
+            ResizeHandle.L or ResizeHandle.R => Cursors.SizeWE,
             _ => _sel.Contains(p) ? Cursors.SizeAll : Cursors.Default,
         };
     }
-
-    private static bool IsShapeValid(Shape s) => s.Tool switch
-    {
-        Tool.Pen => s.Points is { Count: > 1 },
-        _ => Math.Abs(s.A.X - s.B.X) > 2 || Math.Abs(s.A.Y - s.B.Y) > 2,
-    };
 
     // ---------- Render ----------
     protected override void OnPaint(PaintEventArgs e)
@@ -624,8 +551,8 @@ public sealed class CaptureOverlay : Form
         // anotações (recortadas à seleção)
         g.SetClip(_sel);
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        foreach (var s in _shapes) DrawShape(g, s);
-        if (_drawing is not null) DrawShape(g, _drawing);
+        foreach (var s in _shapes) ShapeRenderer.Draw(g, s);
+        if (_drawing is not null) ShapeRenderer.Draw(g, _drawing);
         g.ResetClip();
 
         if (_mode == Mode.Editing)
@@ -645,35 +572,6 @@ public sealed class CaptureOverlay : Form
         if (_mode == Mode.Editing && !_chatOpen) DrawTooltip(g);
     }
 
-    private void DrawShape(Graphics g, Shape s)
-    {
-        using var pen = new Pen(s.Color, s.Thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-        switch (s.Tool)
-        {
-            case Tool.Pen:
-                if (s.Points is { Count: > 1 }) g.DrawLines(pen, s.Points.ToArray());
-                break;
-            case Tool.Line:
-                g.DrawLine(pen, s.A, s.B);
-                break;
-            case Tool.Arrow:
-                pen.CustomEndCap = new AdjustableArrowCap(4, 5);
-                g.DrawLine(pen, s.A, s.B);
-                break;
-            case Tool.Rect:
-                g.DrawRectangle(pen, Normalize(s.A, s.B));
-                break;
-            case Tool.Ellipse:
-                g.DrawEllipse(pen, Normalize(s.A, s.B));
-                break;
-            case Tool.Text:
-                using (var f = new Font("Segoe UI", 9f + s.Thickness * 3f, FontStyle.Bold))
-                using (var b = new SolidBrush(s.Color))
-                    g.DrawString(s.TextValue, f, b, s.A);
-                break;
-        }
-    }
-
     private void DrawSelectionChrome(Graphics g)
     {
         if (_sel.Width <= 0) return;
@@ -684,7 +582,7 @@ public sealed class CaptureOverlay : Form
         if (_mode == Mode.Editing)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            foreach (var hr in HandleRects())
+            foreach (var hr in SelectionGeometry.HandleRects(_sel))
             {
                 using var fill = new SolidBrush(Color.White);
                 using var br = new Pen(Color.FromArgb(120, 0, 0, 0), 1);
@@ -1007,7 +905,7 @@ public sealed class CaptureOverlay : Form
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.DrawImage(_background, new Rectangle(0, 0, _sel.Width, _sel.Height), _sel, GraphicsUnit.Pixel);
         g.TranslateTransform(-_sel.Left, -_sel.Top);
-        foreach (var s in _shapes) DrawShape(g, s);
+        foreach (var s in _shapes) ShapeRenderer.Draw(g, s);
         return bmp;
     }
 
