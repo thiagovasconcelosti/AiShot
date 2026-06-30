@@ -32,7 +32,7 @@ public sealed class ImgbbUploader : IImageUploader
 
         // Falha: propaga o corpo da resposta no erro.
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Falha no upload (imgbb): {(int)response.StatusCode} - {body}");
+            throw new HttpRequestException($"Falha no upload (imgbb): {(int)response.StatusCode} - {HttpUtil.Truncate(body)}");
 
         using var doc = JsonDocument.Parse(body);
         var data = doc.RootElement.GetProperty("data");

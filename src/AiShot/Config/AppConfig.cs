@@ -20,31 +20,113 @@ public sealed class AppConfig
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    /// <summary>Caminho padrão do arquivo de config (ao lado do executável).</summary>
+    /// <summary>
+    /// Caminho padrão do arquivo de config: %APPDATA%\AiShot\appsettings.json
+    /// (fora da pasta do app; segredos cifrados via DPAPI).
+    /// </summary>
     public static string DefaultPath =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "AiShot", "appsettings.json");
+
+    /// <summary>Local legado (ao lado do executável) — migrado no primeiro Load.</summary>
+    private static string LegacyPath =>
         Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
     public static AppConfig Load(string? path = null)
     {
         path ??= DefaultPath;
+
         AppConfig cfg;
+        bool migrating = false;
         if (File.Exists(path))
         {
-            var json = File.ReadAllText(path);
-            cfg = JsonSerializer.Deserialize<AppConfig>(json, JsonOpts) ?? new AppConfig();
+            cfg = Deserialize(path);
+        }
+        else if (File.Exists(LegacyPath))
+        {
+            // Migração: lê config antiga (texto puro ao lado do exe) e regrava
+            // no novo local com os segredos cifrados.
+            cfg = Deserialize(LegacyPath);
+            migrating = true;
         }
         else
         {
             cfg = new AppConfig();
         }
+
+        cfg.DecryptSecrets();
+        if (migrating) cfg.Save(path); // persiste cifrado no novo local
+
         cfg.ApplyEnvironmentOverrides();
         return cfg;
+    }
+
+    private static AppConfig Deserialize(string p)
+    {
+        var json = File.ReadAllText(p);
+        return JsonSerializer.Deserialize<AppConfig>(json, JsonOpts) ?? new AppConfig();
     }
 
     public void Save(string? path = null)
     {
         path ??= DefaultPath;
-        File.WriteAllText(path, JsonSerializer.Serialize(this, JsonOpts));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        // Serializa uma cópia com os segredos cifrados (mantém as chaves em
+        // claro na instância em memória para uso imediato).
+        var json = JsonSerializer.Serialize(EncryptedClone(), JsonOpts);
+
+        // Escrita atômica: grava em .tmp e troca, evitando corromper em crash.
+        var tmp = path + ".tmp";
+        File.WriteAllText(tmp, json);
+        File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>Decifra todas as chaves para uso em memória.</summary>
+    private void DecryptSecrets()
+    {
+        Ai.ApiKey = SecretProtector.Unprotect(Ai.ApiKey);
+        if (Ai.Fallback is not null) Ai.Fallback.ApiKey = SecretProtector.Unprotect(Ai.Fallback.ApiKey);
+        Ai.Vision.ApiKey = SecretProtector.Unprotect(Ai.Vision.ApiKey);
+        ImageUpload.ApiKey = SecretProtector.Unprotect(ImageUpload.ApiKey);
+    }
+
+    /// <summary>Clone raso com as chaves cifradas (para persistir).</summary>
+    private AppConfig EncryptedClone()
+    {
+        var c = new AppConfig
+        {
+            HotKey = HotKey,
+            Ai = new AiConfig
+            {
+                Provider = Ai.Provider,
+                ApiKey = SecretProtector.Protect(Ai.ApiKey),
+                Model = Ai.Model,
+                BaseUrl = Ai.BaseUrl,
+                Vision = new VisionConfig
+                {
+                    Enabled = Ai.Vision.Enabled,
+                    Provider = Ai.Vision.Provider,
+                    ApiKey = SecretProtector.Protect(Ai.Vision.ApiKey),
+                    Model = Ai.Vision.Model,
+                    BaseUrl = Ai.Vision.BaseUrl,
+                },
+                Fallback = Ai.Fallback is null ? null : new AiEndpoint
+                {
+                    Provider = Ai.Fallback.Provider,
+                    ApiKey = SecretProtector.Protect(Ai.Fallback.ApiKey),
+                    Model = Ai.Fallback.Model,
+                    BaseUrl = Ai.Fallback.BaseUrl,
+                },
+            },
+            ImageUpload = new ImageUploadConfig
+            {
+                Service = ImageUpload.Service,
+                ApiKey = SecretProtector.Protect(ImageUpload.ApiKey),
+            },
+        };
+        return c;
     }
 
     /// <summary>

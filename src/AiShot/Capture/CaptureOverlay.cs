@@ -54,6 +54,7 @@ public sealed class CaptureOverlay : Form
     private Rectangle _sidePanelRect;
 
     // Chat
+    private readonly CancellationTokenSource _cts = new();
     private bool _chatOpen;
     private bool _chatBusy;
     private Ai.IAiChatSession? _session;
@@ -263,15 +264,15 @@ public sealed class CaptureOverlay : Form
 
     private Tool Toggle(Tool t) => _tool == t ? Tool.None : t;
 
-    private async void OnBottomAction(string id)
+    private void OnBottomAction(string id)
     {
         switch (id)
         {
-            case "copy": _services.CopyToClipboard(RenderFinal()); Flash("Copiado"); break;
+            case "copy": SafeSetClipboardImage(RenderFinal()); break;
             case "save": _services.SaveToFile(RenderFinal()); break;
             case "paint": OpenInPaint(); break;
-            case "upload": await DoUploadAsync(); break;
-            case "share": await DoUploadAsync(share: true); break;
+            case "upload": _ = DoUploadAsync(); break;
+            case "share": _ = DoUploadAsync(share: true); break;
             case "ai": OpenChat(); break;
             case "close": Close(); break;
         }
@@ -279,27 +280,66 @@ public sealed class CaptureOverlay : Form
 
     private async Task DoUploadAsync(bool share = false)
     {
+        // Aviso de privacidade: o print sai do computador para um host público.
+        if (!ConfirmUploadOnce()) return;
         try
         {
             Flash("Enviando…");
-            var url = await _services.UploadAsync(RenderFinal());
-            Clipboard.SetText(url);
+            var url = await _services.UploadAsync(RenderFinal(), _cts.Token).ConfigureAwait(true);
+            if (IsDisposed) return;
+
+            SafeSetClipboardText(url);
             if (share)
             {
-                // Compartilhar: abre a URL no navegador padrão.
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = url,
-                    UseShellExecute = true,
-                });
-                Flash("Aberto no navegador (URL copiada)");
+                if (TryOpenUrl(url)) Flash("Aberto no navegador (URL copiada)");
+                else Flash("URL inválida; não foi aberta. (copiada)");
             }
             else
             {
                 Flash("URL copiada: " + url);
             }
         }
-        catch (Exception ex) { Flash(share ? "Falha ao compartilhar: " + ex.Message : "Falha no upload: " + ex.Message); }
+        catch (OperationCanceledException) { /* overlay fechado durante o upload */ }
+        catch (Exception ex)
+        {
+            if (!IsDisposed) Flash((share ? "Falha ao compartilhar: " : "Falha no upload: ") + ex.Message);
+        }
+    }
+
+    private bool _uploadConfirmed;
+    private bool ConfirmUploadOnce()
+    {
+        if (_uploadConfirmed) return true;
+        var r = MessageBox.Show(
+            "A imagem será enviada para um serviço de hospedagem público e ficará acessível por link. Continuar?",
+            "AiShot — enviar imagem", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+        _uploadConfirmed = r == DialogResult.OK;
+        return _uploadConfirmed;
+    }
+
+    /// <summary>Abre uma URL só se for http/https (evita esquemas perigosos via ShellExecute).</summary>
+    private static bool TryOpenUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps) return false;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = u.AbsoluteUri,
+            UseShellExecute = true,
+        });
+        return true;
+    }
+
+    private void SafeSetClipboardText(string text)
+    {
+        try { Clipboard.SetText(text); }
+        catch (Exception ex) { Flash("Clipboard indisponível: " + ex.Message); }
+    }
+
+    private void SafeSetClipboardImage(Bitmap image)
+    {
+        try { _services.CopyToClipboard(image); Flash("Copiado"); }
+        catch (Exception ex) { Flash("Clipboard indisponível: " + ex.Message); }
     }
 
     /// <summary>Salva o print num arquivo temporário e abre no Paint (mspaint).</summary>
@@ -345,7 +385,7 @@ public sealed class CaptureOverlay : Form
     {
         if (_hoverTip is null || _hoverRect.IsEmpty) return;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var f = new Font("Segoe UI", 8.5f);
+        var f = TooltipFont;
         var sz = g.MeasureString(_hoverTip, f);
         int w = (int)sz.Width + 16, h = 24;
         // acima do botão por padrão; se não couber, abaixo
@@ -359,8 +399,7 @@ public sealed class CaptureOverlay : Form
         using (var pen = new Pen(Theme.Border, 1))
         { g.FillPath(b, p); g.DrawPath(pen, p); }
         using var tb = new SolidBrush(Theme.Text);
-        var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString(_hoverTip, f, tb, r, fmt);
+        g.DrawString(_hoverTip, f, tb, r, CenterFmt);
     }
 
     // ---------- Chat IA ----------
@@ -415,17 +454,25 @@ public sealed class CaptureOverlay : Form
         Invalidate();
         try
         {
-            var ans = await _session.SendAsync(q);
+            var ans = await _session.SendAsync(q, _cts.Token).ConfigureAwait(true);
+            if (IsDisposed) return;
             _messages.Add(("assistant", ans));
         }
-        catch (Exception ex) { _messages.Add(("assistant", "Erro: " + ex.Message)); }
+        catch (OperationCanceledException) { return; } // overlay fechado
+        catch (Exception ex)
+        {
+            if (IsDisposed) return;
+            _messages.Add(("assistant", "Erro: " + ex.Message));
+        }
         finally
         {
-            _chatBusy = false;
-            _chatInput.Enabled = true;
-            _chatInput.Focus();
-            _scrollToBottom = true;
-            Invalidate();
+            if (!IsDisposed)
+            {
+                _chatBusy = false;
+                if (_chatInput is not null) { _chatInput.Enabled = true; _chatInput.Focus(); }
+                _scrollToBottom = true;
+                Invalidate();
+            }
         }
     }
 
@@ -748,10 +795,8 @@ public sealed class CaptureOverlay : Form
             g.FillPath(hl, p);
         }
         var color = b.Active ? Color.Black : (accentClose ? Theme.TextMuted : Theme.Text);
-        using var f = Icons.Font(20);
         using var br = new SolidBrush(color);
-        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString(b.Glyph, f, br, b.Rect, sf);
+        g.DrawString(b.Glyph, Icons.Cached(20), br, b.Rect, CenterFmt);
     }
 
     private void DrawPalette(Graphics g)
@@ -785,6 +830,12 @@ public sealed class CaptureOverlay : Form
     }
 
     private static readonly Font ChatFont = new("Segoe UI", 10f);
+    // Recursos GDI reaproveitados no OnPaint (evita alocar por frame).
+    private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+    private static readonly Font TooltipFont = new("Segoe UI", 8.5f);
+    private static readonly Font DimFont = new("Segoe UI", 9f, FontStyle.Bold);
+    private static readonly Font FlashFont = new("Segoe UI", 9.5f);
+    private static readonly Font ChatHeaderFont = new("Segoe UI Semibold", 10.5f);
 
     private void DrawChat(Graphics g)
     {
@@ -793,12 +844,10 @@ public sealed class CaptureOverlay : Form
         var inner = Rectangle.Inflate(_chatBubble, -14, -14);
 
         // --- cabeçalho ---
-        using (var hf = Icons.Font(18))
         using (var hb = new SolidBrush(Theme.Text))
-            g.DrawString(Icons.Sparkle, hf, hb, inner.Left, inner.Top - 2);
-        using (var tf = new Font("Segoe UI Semibold", 10.5f))
+            g.DrawString(Icons.Sparkle, Icons.Cached(18), hb, inner.Left, inner.Top - 2);
         using (var tb = new SolidBrush(Theme.Text))
-            g.DrawString("Perguntar à IA", tf, tb, inner.Left + 26, inner.Top);
+            g.DrawString("Perguntar à IA", ChatHeaderFont, tb, inner.Left + 26, inner.Top);
         using (var sep = new Pen(Theme.BorderSubtle, 1))
             g.DrawLine(sep, inner.Left, inner.Top + 26, inner.Right, inner.Top + 26);
 
@@ -877,12 +926,8 @@ public sealed class CaptureOverlay : Form
         using (var p = Theme.RoundRect(sendBtn, 9))
         using (var bb = new SolidBrush(_chatBusy ? Theme.SurfaceHover : Color.White))
             g.FillPath(bb, p);
-        using (var sf = Icons.Font(16))
         using (var sb = new SolidBrush(_chatBusy ? Theme.TextMuted : Color.Black))
-        {
-            var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(Icons.Send, sf, sb, sendBtn, fmt);
-        }
+            g.DrawString(Icons.Send, Icons.Cached(16), sb, sendBtn, CenterFmt);
     }
 
     private void LayoutChat()
@@ -926,7 +971,7 @@ public sealed class CaptureOverlay : Form
     {
         if (_sel.Width <= 0) return;
         var txt = $"{_sel.Width} × {_sel.Height}";
-        using var f = new Font("Segoe UI", 9f, FontStyle.Bold);
+        var f = DimFont;
         var sz = g.MeasureString(txt, f);
         int ly = _sel.Top - 24; if (ly < 4) ly = _sel.Top + 6;
         var bg = new Rectangle(_sel.Left, ly, (int)sz.Width + 14, 20);
@@ -941,7 +986,7 @@ public sealed class CaptureOverlay : Form
     private void DrawFlash(Graphics g)
     {
         if (_flash is null) return;
-        using var f = new Font("Segoe UI", 9.5f);
+        var f = FlashFont;
         var sz = g.MeasureString(_flash, f);
         int w = (int)sz.Width + 24;
         var r = new Rectangle((Width - w) / 2, 24, w, 30);
@@ -950,8 +995,7 @@ public sealed class CaptureOverlay : Form
         using (var b = new SolidBrush(Theme.Surface)) { g.FillPath(b, p); using var pen = new Pen(Theme.Border, 1); g.DrawPath(pen, p); }
         using (var tb = new SolidBrush(Theme.Text))
         {
-            var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(_flash, f, tb, r, fmt);
+            g.DrawString(_flash, f, tb, r, CenterFmt);
         }
     }
 
@@ -967,9 +1011,21 @@ public sealed class CaptureOverlay : Form
         return bmp;
     }
 
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        // Cancela qualquer chamada de IA/upload em andamento ao fechar.
+        try { _cts.Cancel(); } catch { /* já disposto */ }
+        base.OnFormClosing(e);
+    }
+
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _background.Dispose();
+        if (disposing)
+        {
+            try { _cts.Cancel(); } catch { }
+            _cts.Dispose();
+            _background.Dispose();
+        }
         base.Dispose(disposing);
     }
 }

@@ -34,6 +34,19 @@ public static class Icons
 
     public static Font Font(float size) => new(_family, size, FontStyle.Regular, GraphicsUnit.Pixel);
 
+    private static readonly Dictionary<int, Font> _cache = new();
+
+    /// <summary>Fonte de ícone reaproveitada (cache por tamanho) — evita alocar no OnPaint.</summary>
+    public static Font Cached(int size)
+    {
+        if (!_cache.TryGetValue(size, out var f))
+        {
+            f = Font(size);
+            _cache[size] = f;
+        }
+        return f;
+    }
+
     // Glifos (char a partir do codepoint hex do Phosphor)
     public static readonly string Pencil = G("e3b4");
     public static readonly string Arrow = G("e092");      // arrow-up-right

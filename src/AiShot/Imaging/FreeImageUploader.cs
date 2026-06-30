@@ -39,7 +39,7 @@ public sealed class FreeImageUploader : IImageUploader
 
         // Falha: propaga o corpo da resposta no erro.
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Falha no upload (freeimage.host): {(int)response.StatusCode} - {body}");
+            throw new HttpRequestException($"Falha no upload (freeimage.host): {(int)response.StatusCode} - {HttpUtil.Truncate(body)}");
 
         using var doc = JsonDocument.Parse(body);
         var image = doc.RootElement.GetProperty("image");

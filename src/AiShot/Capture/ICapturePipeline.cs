@@ -17,19 +17,6 @@ public interface ICaptureServices
     /// <summary>Faz upload para o serviço de imagem grátis e devolve a URL.</summary>
     Task<string> UploadAsync(Bitmap finalImage, CancellationToken ct = default);
 
-    /// <summary>Pergunta à IA sobre a imagem; retorna a resposta em texto.</summary>
-    Task<string> AskAiAsync(string question, Bitmap finalImage, CancellationToken ct = default);
-
     /// <summary>Inicia uma conversa contínua (com histórico) sobre a imagem.</summary>
     AiShot.Ai.IAiChatSession StartChat(Bitmap finalImage);
-}
-
-/// <summary>Ponto de entrada para iniciar a captura de região da tela.</summary>
-public interface IScreenCapture
-{
-    /// <summary>
-    /// Mostra overlay fullscreen, deixa o usuário selecionar uma região.
-    /// Retorna o bitmap recortado ou null se cancelado (Esc).
-    /// </summary>
-    Bitmap? CaptureRegion();
 }

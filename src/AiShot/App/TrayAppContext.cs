@@ -1,7 +1,6 @@
 using System.Windows.Forms;
 using AiShot.Capture;
 using AiShot.Config;
-using AiShot.Editor;
 using AiShot.HotKey;
 using AiShot.Settings;
 
@@ -37,6 +36,23 @@ public sealed class TrayAppContext : ApplicationContext
         _hotKey = new GlobalHotKey();
         _hotKey.Pressed += (_, _) => StartCapture();
         RegisterHotKey();
+
+        CleanupTempFiles();
+    }
+
+    /// <summary>Remove PNGs temporários do app (abertos no Paint) com mais de 1h.</summary>
+    private static void CleanupTempFiles()
+    {
+        try
+        {
+            var cutoff = DateTime.Now.AddHours(-1);
+            foreach (var f in Directory.EnumerateFiles(Path.GetTempPath(), "aishot_*.png"))
+            {
+                try { if (File.GetLastWriteTime(f) < cutoff) File.Delete(f); }
+                catch { /* arquivo em uso — ignora */ }
+            }
+        }
+        catch { /* sem acesso ao temp — ignora */ }
     }
 
     private static Icon LoadAppIcon()

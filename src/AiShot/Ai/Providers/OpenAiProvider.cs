@@ -73,7 +73,7 @@ public sealed class OpenAiProvider : IAiProvider
         // Erro != 2xx: lança com o corpo da resposta para diagnóstico.
         if (!resp.IsSuccessStatusCode)
             throw new HttpRequestException(
-                $"OpenAI retornou {(int)resp.StatusCode} {resp.ReasonPhrase}: {respBody}");
+                $"OpenAI retornou {(int)resp.StatusCode} {resp.ReasonPhrase}: {HttpUtil.Truncate(respBody)}");
 
         // Extrai choices[0].message.content do JSON de resposta.
         using var doc = JsonDocument.Parse(respBody);

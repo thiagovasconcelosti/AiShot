@@ -40,3 +40,30 @@ dotnet run --project src/AiShot/AiShot.csproj
 
 A IA de visão (se ativada) sempre roda primeiro, gerando o contexto que a IA
 principal usa para responder à sua pergunta.
+
+## Segurança das credenciais
+
+As chaves de API **não ficam em texto puro**. São cifradas com **DPAPI**
+(escopo do usuário do Windows) e guardadas em
+`%APPDATA%\AiShot\appsettings.json` — um arquivo copiado para outra máquina ou
+outro usuário fica inútil. Na primeira execução, um `appsettings.json` legado
+(ao lado do executável) é migrado automaticamente para esse local cifrado.
+
+O `appsettings.json` versionado no repositório tem as chaves **vazias**; nunca
+comite chaves reais. Para configurar, use **Configurações** no tray ou as
+variáveis de ambiente `AISHOT_*` (têm precedência e não tocam o disco).
+
+## Distribuição
+
+Build self-contained comprimido (um único `.exe`, ~49 MB, roda sem .NET instalado):
+
+```sh
+dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 \
+  --self-contained true -p:PublishSingleFile=true \
+  -p:IncludeNativeLibrariesForSelfExtract=true \
+  -p:EnableCompressionInSingleFile=true -p:DebugType=none
+```
+
+## Licença
+
+[MIT](LICENSE) © 2026 Thiago Vasconcelos

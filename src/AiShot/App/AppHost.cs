@@ -51,13 +51,6 @@ public sealed class AppHost : ICaptureServices
         return string.IsNullOrEmpty(result.PageUrl) ? result.DirectUrl : result.PageUrl;
     }
 
-    public async Task<string> AskAiAsync(string question, Bitmap finalImage, CancellationToken ct = default)
-    {
-        var png = ToPng(finalImage);
-        var resp = await _ai.AskAboutImageAsync(question, png, ct).ConfigureAwait(false);
-        return resp.Text;
-    }
-
     public Ai.IAiChatSession StartChat(Bitmap finalImage)
     {
         var png = ToPng(finalImage);

@@ -79,7 +79,7 @@ public sealed class AnthropicProvider : IAiProvider
         // Erro != 2xx: lança com o corpo da resposta para diagnóstico.
         if (!resp.IsSuccessStatusCode)
             throw new HttpRequestException(
-                $"Anthropic retornou {(int)resp.StatusCode} {resp.ReasonPhrase}: {respBody}");
+                $"Anthropic retornou {(int)resp.StatusCode} {resp.ReasonPhrase}: {HttpUtil.Truncate(respBody)}");
 
         // Extrai content[0].text do JSON de resposta.
         using var doc = JsonDocument.Parse(respBody);

@@ -41,17 +41,10 @@ public static class Theme
         return p;
     }
 
-    /// <summary>Desenha um painel (barra) escuro com borda sutil e sombra leve.</summary>
+    /// <summary>Desenha um painel (barra) escuro com borda sutil.</summary>
     public static void DrawPanel(Graphics g, Rectangle r)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        // sombra
-        using (var shadow = new GraphicsPath())
-        {
-            var sr = r; sr.Offset(0, 3);
-            using var sp = RoundRect(sr, Radius);
-            using var sb = new PathGradientBrush(sp) { CenterColor = Color.FromArgb(70, 0, 0, 0), SurroundColors = new[] { Color.Transparent } };
-        }
         using var path = RoundRect(r, Radius);
         using var fill = new SolidBrush(Surface);
         using var pen = new Pen(BorderSubtle, 1);
