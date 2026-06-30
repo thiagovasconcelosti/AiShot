@@ -2,6 +2,7 @@ bin/
 obj/
 artifacts/
 publish/
+dist/
 *.user
 .vs/
 appsettings.local.json
