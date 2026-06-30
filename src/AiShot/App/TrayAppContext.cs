@@ -1,0 +1,131 @@
+using System.Windows.Forms;
+using AiShot.Capture;
+using AiShot.Config;
+using AiShot.Editor;
+using AiShot.HotKey;
+using AiShot.Settings;
+
+namespace AiShot.App;
+
+/// <summary>
+/// Contexto da aplicação no tray. Sem janela principal: ícone na bandeja,
+/// menu de contexto e atalho global para iniciar a captura.
+/// </summary>
+public sealed class TrayAppContext : ApplicationContext
+{
+    private readonly NotifyIcon _tray;
+    private readonly GlobalHotKey _hotKey;
+    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(3) };
+    private AppConfig _cfg;
+    private AppHost _host;
+    private bool _capturing;
+
+    public TrayAppContext()
+    {
+        _cfg = AppConfig.Load();
+        _host = new AppHost(_cfg, _http);
+
+        _tray = new NotifyIcon
+        {
+            Icon = LoadAppIcon(),
+            Text = "AiShot",
+            Visible = true,
+            ContextMenuStrip = BuildMenu(),
+        };
+        _tray.DoubleClick += (_, _) => StartCapture();
+
+        _hotKey = new GlobalHotKey();
+        _hotKey.Pressed += (_, _) => StartCapture();
+        RegisterHotKey();
+    }
+
+    private static Icon LoadAppIcon()
+    {
+        var asm = System.Reflection.Assembly.GetExecutingAssembly();
+        var name = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("app.ico", StringComparison.OrdinalIgnoreCase));
+        if (name is not null)
+        {
+            using var s = asm.GetManifestResourceStream(name);
+            if (s is not null) return new Icon(s);
+        }
+        return SystemIcons.Application;
+    }
+
+    private ContextMenuStrip BuildMenu()
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("Capturar", null, (_, _) => StartCapture());
+        menu.Items.Add("Configurações…", null, (_, _) => OpenSettings());
+
+        var startup = new ToolStripMenuItem("Iniciar com o Windows")
+        {
+            CheckOnClick = true,
+            Checked = StartupManager.IsEnabled(),
+        };
+        startup.CheckedChanged += (s, _) =>
+        {
+            try { StartupManager.SetEnabled(((ToolStripMenuItem)s!).Checked); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        };
+        menu.Items.Add(startup);
+
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Sair", null, (_, _) => ExitApp());
+        return menu;
+    }
+
+    private void RegisterHotKey()
+    {
+        if (!_hotKey.Register(_cfg.HotKey))
+        {
+            _tray.ShowBalloonTip(3000, "AiShot",
+                $"Não foi possível registrar o atalho '{_cfg.HotKey}'. Pode estar em uso.",
+                ToolTipIcon.Warning);
+        }
+    }
+
+    private void StartCapture()
+    {
+        if (_capturing) return;
+        _capturing = true;
+        try
+        {
+            var overlay = new CaptureOverlay(_host);
+            overlay.Show();
+            overlay.Activate();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "AiShot — erro na captura",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _capturing = false;
+        }
+    }
+
+    private void OpenSettings()
+    {
+        using var form = new SettingsForm(_cfg);
+        if (form.ShowDialog() == DialogResult.OK)
+        {
+            // Recarrega config + recria host e re-registra atalho.
+            _cfg = AppConfig.Load();
+            _host = new AppHost(_cfg, _http);
+            RegisterHotKey();
+        }
+    }
+
+    private void ExitApp()
+    {
+        _hotKey.Dispose();
+        _tray.Visible = false;
+        _tray.Dispose();
+        _http.Dispose();
+        ExitThread();
+    }
+}
