@@ -48,7 +48,7 @@ export default function App() {
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => bridge.cancel()}
-          className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="grid h-8 w-8 place-items-center rounded-md border border-border text-foreground/80 hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
           aria-label="Fechar"
         >
           <X size={18} />

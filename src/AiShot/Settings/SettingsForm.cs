@@ -236,8 +236,10 @@ public sealed class SettingsForm : Form
     // ---------- Recursos ----------
     private static string ExtractWebUI()
     {
-        var version = typeof(SettingsForm).Assembly.GetName().Version?.ToString() ?? "0";
-        var dir = Path.Combine(Path.GetTempPath(), "AiShot.webui", version);
+        // Chave por ModuleVersionId: muda a cada build -> invalida o cache
+        // quando o bundle web muda; reutiliza entre aberturas do mesmo build.
+        var key = typeof(SettingsForm).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+        var dir = Path.Combine(Path.GetTempPath(), "AiShot.webui", key);
         if (File.Exists(Path.Combine(dir, "index.html"))) return dir; // cache
 
         var asm = Assembly.GetExecutingAssembly();
