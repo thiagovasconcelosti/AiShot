@@ -24,6 +24,7 @@ public sealed class SettingsForm : Form
     private readonly AppConfig _cfg;
     private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
+    private readonly LoadingOverlay _loading = new() { Dock = DockStyle.Fill };
 
     public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null)
     {
@@ -39,6 +40,9 @@ public sealed class SettingsForm : Form
         BackColor = DarkBg;
         Icon = LoadFormIcon();
         Controls.Add(_web);
+        Controls.Add(_loading);
+        _loading.BringToFront();
+        _loading.Start();
     }
 
     /// <summary>Pré-cria o ambiente WebView2 (barato) no startup — 1ª abertura rápida.</summary>
@@ -62,6 +66,7 @@ public sealed class SettingsForm : Form
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
             core.WebMessageReceived += OnWebMessage;
+            core.DOMContentLoaded += (_, _) => HideLoading();
 
             if (_hotKeyService is not null) _hotKeyService.KeyCaptured += OnHotKeyCaptured;
 
@@ -69,9 +74,17 @@ public sealed class SettingsForm : Form
         }
         catch (Exception ex)
         {
+            HideLoading();
             MessageBox.Show("Falha ao carregar a interface: " + ex.Message, "AiShot",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private void HideLoading()
+    {
+        if (IsDisposed) return;
+        _loading.Stop();
+        _loading.Visible = false;
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
@@ -224,5 +237,47 @@ public sealed class SettingsForm : Form
         if (name is null) return null;
         using var s = asm.GetManifestResourceStream(name);
         return s is null ? null : new Icon(s);
+    }
+
+    /// <summary>Overlay dark com spinner enquanto o WebView2 carrega.</summary>
+    private sealed class LoadingOverlay : Panel
+    {
+        private readonly System.Windows.Forms.Timer _timer = new() { Interval = 16 };
+        private float _angle;
+
+        public LoadingOverlay()
+        {
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
+            BackColor = DarkBg;
+            _timer.Tick += (_, _) => { _angle = (_angle + 9f) % 360f; Invalidate(); };
+        }
+
+        public void Start() { Visible = true; _timer.Start(); }
+        public void Stop() { _timer.Stop(); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            int cx = Width / 2, cy = Height / 2 - 10, r = 16;
+            // trilha
+            using (var track = new Pen(Color.FromArgb(45, 45, 50), 3f))
+                g.DrawEllipse(track, cx - r, cy - r, r * 2, r * 2);
+            // arco (acento)
+            using (var arc = new Pen(Color.FromArgb(47, 107, 255), 3f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round })
+                g.DrawArc(arc, cx - r, cy - r, r * 2, r * 2, _angle, 90f);
+            using (var f = new Font("Segoe UI", 8.5f))
+            using (var b = new SolidBrush(Color.FromArgb(140, 140, 150)))
+            {
+                var sf = new StringFormat { Alignment = StringAlignment.Center };
+                g.DrawString("Carregando…", f, b, cx, cy + r + 12, sf);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _timer.Dispose();
+            base.Dispose(disposing);
+        }
     }
 }
