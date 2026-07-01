@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows.Forms;
 using AiShot.Config;
@@ -43,6 +44,23 @@ public sealed class SettingsForm : Form
         Controls.Add(_loading);
         _loading.BringToFront();
         _loading.Start();
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        // Title bar escura (Win10 1809+/11) + cor e texto (Win11 22000+).
+        int dark = 1;
+        DwmSetWindowAttribute(Handle, 20, ref dark, sizeof(int));       // DWMWA_USE_IMMERSIVE_DARK_MODE
+        int caption = 0x000D0B0B;                                        // COLORREF (BGR) do #0B0B0D
+        DwmSetWindowAttribute(Handle, 35, ref caption, sizeof(int));     // DWMWA_CAPTION_COLOR
+        int text = 0x00FAFAFA;
+        DwmSetWindowAttribute(Handle, 36, ref text, sizeof(int));        // DWMWA_TEXT_COLOR
+        int border = 0x002A2727;                                         // #27272A
+        DwmSetWindowAttribute(Handle, 34, ref border, sizeof(int));      // DWMWA_BORDER_COLOR
     }
 
     /// <summary>Pré-cria o ambiente WebView2 (barato) no startup — 1ª abertura rápida.</summary>
