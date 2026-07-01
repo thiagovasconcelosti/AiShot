@@ -604,38 +604,14 @@ public sealed class CaptureOverlay : Form
 
     private void LayoutAndDrawToolbars(Graphics g)
     {
-        _sideButtons.Clear();
-        _bottomButtons.Clear();
-        var mon = MonitorBounds();
+        // Cálculo puro das posições; o overlay só desenha.
+        var layout = ToolbarLayout.Compute(_sel, MonitorBounds(), _tool, _paletteOpen);
+        _sidePanelRect = layout.SidePanel;
+        _sideButtons.Clear(); _sideButtons.AddRange(layout.SideButtons);
+        _bottomButtons.Clear(); _bottomButtons.AddRange(layout.BottomButtons);
 
-        // --- Barra lateral (ferramentas de desenho) ---
-        (string glyph, string id, string tip, Tool t)[] tools =
-        {
-            (Icons.Pencil, "pen", "Lápis", Tool.Pen),
-            (Icons.Arrow, "arrow", "Seta", Tool.Arrow),
-            (Icons.Line, "line", "Linha", Tool.Line),
-            (Icons.Rectangle, "rect", "Retângulo", Tool.Rect),
-            (Icons.Circle, "ellipse", "Elipse", Tool.Ellipse),
-            (Icons.Text, "text", "Texto", Tool.Text),
-            (Icons.Palette, "color", "Cor", Tool.None),
-            (Icons.Undo, "undo", "Desfazer", Tool.None),
-        };
-        int bs = Theme.ButtonSize, gap = 2, pad = Theme.BarPad;
-        int panelW = bs + pad * 2;
-        int panelH = tools.Length * bs + (tools.Length - 1) * gap + pad * 2;
-        int sx = _sel.Right + 12;
-        if (sx + panelW > mon.Right - 8) sx = _sel.Left - 12 - panelW;
-        if (sx < mon.Left + 8) sx = mon.Right - 8 - panelW; // último recurso
-        int sy = Math.Max(mon.Top + 8, Math.Min(_sel.Top, mon.Bottom - panelH - 8));
-        var sidePanel = new Rectangle(sx, sy, panelW, panelH);
-        _sidePanelRect = sidePanel;
-        Theme.DrawPanel(g, sidePanel);
-        for (int i = 0; i < tools.Length; i++)
-        {
-            var r = new Rectangle(sx + pad, sy + pad + i * (bs + gap), bs, bs);
-            bool active = tools[i].id == "color" ? _paletteOpen : (_tool == tools[i].t && tools[i].t != Tool.None);
-            _sideButtons.Add(new IconButton(r, tools[i].glyph, tools[i].id, active, tools[i].tip));
-        }
+        // --- Barra lateral (ferramentas) ---
+        Theme.DrawPanel(g, layout.SidePanel);
         foreach (var b in _sideButtons)
         {
             DrawIconButton(g, b);
@@ -648,38 +624,7 @@ public sealed class CaptureOverlay : Form
         }
 
         // --- Barra inferior (ações) ---
-        (string glyph, string id, string tip)[] actions =
-        {
-            (Icons.Copy, "copy", "Copiar"),
-            (Icons.Save, "save", "Salvar"),
-            (Icons.Paint, "paint", "Abrir no Paint"),
-            (Icons.Upload, "upload", "Upload"),
-            (Icons.Share, "share", "Compartilhar"),
-            (Icons.Chat, "ai", "Perguntar à IA"),
-            (Icons.Close, "close", "Fechar"),
-        };
-        int bw = actions.Length * bs + (actions.Length - 1) * gap + pad * 2;
-        int bx = _sel.Left + (_sel.Width - bw) / 2;
-        bx = Math.Max(mon.Left + 8, Math.Min(bx, mon.Right - bw - 8));
-        int by = _sel.Bottom + 12;
-        if (by + bs + pad * 2 > mon.Bottom - 8) by = _sel.Top - 12 - (bs + pad * 2);
-        var botPanel = new Rectangle(bx, by, bw, bs + pad * 2);
-
-        // Evita sobrepor a toolbar lateral: empurra pro lado oposto a ela.
-        if (botPanel.IntersectsWith(_sidePanelRect))
-        {
-            bool sideRight = _sidePanelRect.Left >= _sel.Right;
-            if (sideRight) bx = _sidePanelRect.Left - 8 - bw;
-            else bx = _sidePanelRect.Right + 8;
-            bx = Math.Max(mon.Left + 8, Math.Min(bx, mon.Right - bw - 8));
-            botPanel = new Rectangle(bx, by, bw, bs + pad * 2);
-        }
-        Theme.DrawPanel(g, botPanel);
-        for (int i = 0; i < actions.Length; i++)
-        {
-            var r = new Rectangle(bx + pad + i * (bs + gap), by + pad, bs, bs);
-            _bottomButtons.Add(new IconButton(r, actions[i].glyph, actions[i].id, false, actions[i].tip));
-        }
+        Theme.DrawPanel(g, layout.BottomPanel);
         foreach (var b in _bottomButtons) DrawIconButton(g, b, accentClose: b.Id == "close");
     }
 
@@ -859,9 +804,18 @@ public sealed class CaptureOverlay : Form
             if (insideMonitor && !c.IntersectsWith(_sel)) { _chatBubble = c; return; }
         }
 
-        // Sem espaço livre: sobrepõe, mas sempre dentro do monitor.
-        int fx = Math.Max(mon.Left + 8, Math.Min(_sel.Right - w, mon.Right - w - 8));
-        int fy = Math.Max(mon.Top + 8, Math.Min(_sel.Top, mon.Bottom - h - 8));
+        // Sem espaço livre (ex.: recorte ocupa a tela toda): sobrepõe o print,
+        // mas nunca a toolbar lateral, e sempre dentro do monitor.
+        int fx = Math.Max(mon.Left + 8, Math.Min(_sel.Left + 8, mon.Right - w - 8));
+        int fy = Math.Max(mon.Top + 8, Math.Min(_sel.Top + 8, mon.Bottom - h - 8));
+        var cand = new Rectangle(fx, fy, w, h);
+        if (!_sidePanelRect.IsEmpty && cand.IntersectsWith(_sidePanelRect))
+        {
+            // Joga o chat pro lado oposto à toolbar lateral.
+            bool sideRight = _sidePanelRect.Left + _sidePanelRect.Width / 2 >= mon.Left + mon.Width / 2;
+            fx = sideRight ? _sidePanelRect.Left - m - w : _sidePanelRect.Right + m;
+            fx = Math.Max(mon.Left + 8, Math.Min(fx, mon.Right - w - 8));
+        }
         _chatBubble = new Rectangle(fx, fy, w, h);
     }
 
