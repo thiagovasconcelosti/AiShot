@@ -9,22 +9,21 @@ namespace AiShot.Settings;
 
 /// <summary>
 /// Janela de configuração — UI React + shadcn/ui hospedada em WebView2.
-/// Usa uma instância WebView2 persistente (pré-aquecida no startup e reaproveitada
-/// via reparent) para abrir instantaneamente. Ponte C#↔JS por mensagens.
+/// O WebView2 é criado ao abrir e destruído ao fechar (memória ociosa ~0).
+/// Só o ambiente (barato, sem browser) fica em cache p/ acelerar a abertura.
+/// Ponte C#↔JS por mensagens.
 /// </summary>
 public sealed class SettingsForm : Form
 {
     private static readonly Color DarkBg = Color.FromArgb(11, 11, 13);
     private static string WvDataDir => Path.Combine(Path.GetTempPath(), "AiShot.WebView2");
 
-    // WebView2 persistente + holder oculto (mantém o browser vivo entre aberturas).
-    private static WebView2? _shared;
-    private static Form? _holder;
-    private static Task? _initTask;
-    private static SettingsForm? _active;
+    // Ambiente compartilhado (não spawna browser) — só encurta a criação.
+    private static Task<CoreWebView2Environment>? _envTask;
 
     private readonly AppConfig _cfg;
     private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
+    private readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
 
     public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null)
     {
@@ -39,42 +38,14 @@ public sealed class SettingsForm : Form
         ClientSize = new Size(500, 680);
         BackColor = DarkBg;
         Icon = LoadFormIcon();
+        Controls.Add(_web);
     }
 
-    /// <summary>Cria e navega o WebView2 persistente no startup (1ª abertura rápida).</summary>
-    public static void Prewarm() { _initTask ??= InitSharedAsync(); }
-
-    private static async Task InitSharedAsync()
+    /// <summary>Pré-cria o ambiente WebView2 (barato) no startup — 1ª abertura rápida.</summary>
+    public static void Prewarm()
     {
-        // Holder invisível (fora da tela) só para manter o WebView2 vivo/inicializado.
-        _holder = new Form
-        {
-            FormBorderStyle = FormBorderStyle.None,
-            ShowInTaskbar = false,
-            StartPosition = FormStartPosition.Manual,
-            Location = new Point(-32000, -32000),
-            Size = new Size(500, 680),
-        };
-        _holder.Show();
-
-        _shared = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
-        _holder.Controls.Add(_shared);
-
-        var env = await CoreWebView2Environment.CreateAsync(userDataFolder: WvDataDir);
-        await _shared.EnsureCoreWebView2Async(env);
-
-        var core = _shared.CoreWebView2;
-        core.SetVirtualHostNameToFolderMapping("aishot.local", ExtractWebUI(), CoreWebView2HostResourceAccessKind.Allow);
-        core.Settings.AreDefaultContextMenusEnabled = false;
-        core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-        core.Settings.IsStatusBarEnabled = false;
-        core.WebMessageReceived += StaticOnWebMessage;
-
-        var loaded = new TaskCompletionSource();
-        void Done(object? s, CoreWebView2NavigationCompletedEventArgs e) { core.NavigationCompleted -= Done; loaded.TrySetResult(); }
-        core.NavigationCompleted += Done;
-        _shared.Source = new Uri("https://aishot.local/index.html");
-        await loaded.Task;
+        try { _envTask ??= CoreWebView2Environment.CreateAsync(userDataFolder: WvDataDir); }
+        catch { /* runtime ausente — tratado ao abrir */ }
     }
 
     protected override async void OnLoad(EventArgs e)
@@ -82,16 +53,19 @@ public sealed class SettingsForm : Form
         base.OnLoad(e);
         try
         {
-            await (_initTask ??= InitSharedAsync());
-            _active = this;
+            _envTask ??= CoreWebView2Environment.CreateAsync(userDataFolder: WvDataDir);
+            await _web.EnsureCoreWebView2Async(await _envTask);
+
+            var core = _web.CoreWebView2;
+            core.SetVirtualHostNameToFolderMapping("aishot.local", ExtractWebUI(), CoreWebView2HostResourceAccessKind.Allow);
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            core.Settings.IsStatusBarEnabled = false;
+            core.WebMessageReceived += OnWebMessage;
+
             if (_hotKeyService is not null) _hotKeyService.KeyCaptured += OnHotKeyCaptured;
 
-            _shared!.Parent?.Controls.Remove(_shared);
-            _shared.Dock = DockStyle.Fill;
-            Controls.Add(_shared);
-            _shared.Focus();
-
-            SendConfig(); // reenvia a config atual (a React já está montada)
+            _web.Source = new Uri("https://aishot.local/index.html");
         }
         catch (Exception ex)
         {
@@ -102,29 +76,20 @@ public sealed class SettingsForm : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        // Devolve o WebView2 pro holder (mantém vivo pra próxima abertura).
-        if (_shared is not null && _holder is not null)
-        {
-            Controls.Remove(_shared);
-            _holder.Controls.Add(_shared);
-        }
         if (_hotKeyService is not null)
         {
             _hotKeyService.CaptureMode = false;
             _hotKeyService.KeyCaptured -= OnHotKeyCaptured;
         }
-        _active = null;
+        _web.Dispose(); // encerra os processos do browser -> memória ociosa ~0
         base.OnFormClosed(e);
     }
 
     // ---------- Ponte JS -> C# ----------
-    private static void StaticOnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-        => _active?.HandleMessage(e.WebMessageAsJson);
-
-    private void HandleMessage(string json)
+    private void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         JsonDocument doc;
-        try { doc = JsonDocument.Parse(json); }
+        try { doc = JsonDocument.Parse(e.WebMessageAsJson); }
         catch { return; }
         using (doc)
         {
@@ -144,7 +109,7 @@ public sealed class SettingsForm : Form
 
     private void SendConfig()
     {
-        if (_shared?.CoreWebView2 is null) return;
+        if (_web.CoreWebView2 is null) return;
         var ai = _cfg.Ai;
         ai.Fallback ??= new AiEndpoint();
         var payload = new
@@ -166,7 +131,7 @@ public sealed class SettingsForm : Form
                 imageUpload = new { service = _cfg.ImageUpload.Service, apiKey = _cfg.ImageUpload.ApiKey },
             },
         };
-        _shared.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
+        _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
     }
 
     private void Save(JsonElement c)
@@ -208,10 +173,10 @@ public sealed class SettingsForm : Form
 
     private void OnHotKeyCaptured(Keys vk)
     {
-        if (_shared?.CoreWebView2 is null) return;
+        if (IsDisposed || _web.CoreWebView2 is null) return;
         if (InvokeRequired) { BeginInvoke(new Action<Keys>(OnHotKeyCaptured), vk); return; }
         var msg = JsonSerializer.Serialize(new { type = "hotkeyCaptured", combo = ComboString(Control.ModifierKeys, vk) });
-        _shared.CoreWebView2.PostWebMessageAsJson(msg);
+        _web.CoreWebView2.PostWebMessageAsJson(msg);
     }
 
     private static string ComboString(Keys mods, Keys key)
