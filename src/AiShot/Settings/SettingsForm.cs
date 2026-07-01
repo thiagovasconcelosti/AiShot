@@ -313,6 +313,9 @@ public sealed class SettingsForm : Form
         tb.ButtonForeColor = Muted;
         tb.ButtonFillHoverColor = InputBg;
         tb.ButtonForeHoverColor = Accent;
+        tb.ButtonRectColor = InputBg;      // sem moldura em caixa
+        tb.ButtonRectHoverColor = InputBg;
+        tb.ButtonRectPressColor = InputBg;
         tb.ButtonClick += (_, _) =>
             tb.PasswordChar = tb.PasswordChar == '\0' ? '●' : '\0';
         return tb;
@@ -414,10 +417,14 @@ public sealed class SettingsForm : Form
         _hotKey.Cursor = Cursors.Hand;
         _hotKey.ShowButton = true;
         _hotKey.ButtonSymbol = 61453;     // FontAwesome times (limpar)
+        _hotKey.ButtonSymbolSize = 16;
         _hotKey.ButtonFillColor = InputBg;
         _hotKey.ButtonForeColor = Muted;
         _hotKey.ButtonFillHoverColor = InputBg;
         _hotKey.ButtonForeHoverColor = Accent;
+        _hotKey.ButtonRectColor = InputBg;
+        _hotKey.ButtonRectHoverColor = InputBg;
+        _hotKey.ButtonRectPressColor = InputBg;
         _hotKey.ButtonClick += (_, _) => { _hotKey.Text = ""; _hotKey.Focus(); };
 
         _hotKey.Enter += (_, _) => { if (_hotKeyService is not null) _hotKeyService.CaptureMode = true; };
