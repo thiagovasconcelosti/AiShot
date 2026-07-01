@@ -1,0 +1,60 @@
+name: 🐞 Bug report
+description: Report a problem with AiShot
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in the details below.
+        **Do not paste API keys or any secrets.**
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: When I press PrintScreen, ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the app
+        2. Press the hotkey
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AiShot version
+      placeholder: e.g. 0.1.0 (see the installer/exe or the release page)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Chocolatey
+        - Installer (.exe)
+        - Portable (.exe)
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: e.g. Windows 11 24H2
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages / screenshots
+      description: Any error dialog text or screenshots. Redact anything sensitive.
+    validations:
+      required: false
