@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Eye, EyeOff, X } from "lucide-react"
+import { Eye, EyeOff, X, Keyboard } from "lucide-react"
 import { bridge, type Config, type Endpoint, type Vision } from "@/bridge"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -16,13 +16,27 @@ const SERVICES = ["freeimage", "imgbb"]
 
 export default function App() {
   const [cfg, setCfg] = useState<Config | null>(null)
+  const [capturing, setCapturing] = useState(false)
+
+  const stopCapture = () => { setCapturing(false); bridge.hotkeyStop() }
 
   useEffect(() => {
     bridge.onConfig(setCfg)
-    bridge.onHotkey((combo) =>
-      setCfg((c) => (c ? { ...c, hotKey: combo } : c)),
-    )
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") bridge.cancel() }
+    bridge.onHotkey((combo) => {
+      setCfg((c) => (c ? { ...c, hotKey: combo } : c))
+      setCapturing(false)
+      bridge.hotkeyStop()
+      ;(document.activeElement as HTMLElement | null)?.blur()
+    })
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      // Esc cancela a captura (se ativa) em vez de fechar a janela.
+      setCapturing((cap) => {
+        if (cap) { bridge.hotkeyStop(); (document.activeElement as HTMLElement | null)?.blur(); return false }
+        bridge.cancel()
+        return cap
+      })
+    }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [])
@@ -58,7 +72,12 @@ export default function App() {
       <main className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         <Section title="Atalho" subtitle="Tecla global para capturar">
           <Field label="Tecla">
-            <HotkeyInput value={cfg.hotKey} onChange={(v) => set({ hotKey: v })} />
+            <HotkeyInput
+              value={cfg.hotKey}
+              onChange={(v) => set({ hotKey: v })}
+              onStart={() => setCapturing(true)}
+              onStop={stopCapture}
+            />
           </Field>
         </Section>
 
@@ -111,6 +130,27 @@ export default function App() {
           <Button onClick={() => bridge.save(cfg)}>Salvar</Button>
         </div>
       </footer>
+
+      {/* Overlay de captura de atalho */}
+      {capturing && (
+        <div
+          onClick={stopCapture}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md animate-in fade-in duration-150"
+        >
+          <div className="flex flex-col items-center gap-4 rounded-2xl border bg-card/90 px-10 py-8 shadow-2xl">
+            <div className="relative grid place-items-center">
+              <span className="absolute h-16 w-16 animate-ping rounded-full bg-primary/20" />
+              <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/15 text-primary">
+                <Keyboard size={30} />
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-base font-semibold">Pressione a combinação de teclas</p>
+              <p className="mt-1 text-sm text-muted-foreground">Ex.: PrintScreen, Ctrl+Alt+S · Esc para cancelar</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -169,7 +209,9 @@ function Password({ value, onChange, placeholder }: { value: string; onChange: (
   )
 }
 
-function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function HotkeyInput({ value, onChange, onStart, onStop }: {
+  value: string; onChange: (v: string) => void; onStart: () => void; onStop: () => void
+}) {
   const ref = useRef<HTMLInputElement>(null)
   return (
     <div className="relative">
@@ -178,8 +220,8 @@ function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string)
         readOnly
         value={value}
         placeholder="Clique e pressione a tecla…"
-        onFocus={() => bridge.hotkeyStart()}
-        onBlur={() => bridge.hotkeyStop()}
+        onFocus={() => { onStart(); bridge.hotkeyStart() }}
+        onBlur={() => onStop()}
         onKeyDown={(e) => {
           if (bridge.isHost) return
           e.preventDefault()
@@ -190,6 +232,8 @@ function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string)
           if (e.shiftKey) parts.push("Shift")
           parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key)
           onChange(parts.join("+"))
+          onStop()
+          ;(e.target as HTMLInputElement).blur()
         }}
         className="pr-9 cursor-pointer"
       />
