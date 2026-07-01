@@ -1,62 +1,46 @@
 # AiShot
 
-Clone do Lightshot/prntscr voltado para IA. Captura de tela, anotação (setas, formas, cores), copiar / salvar / upload para serviço de imagem grátis, e um botão **Perguntar à IA** sobre o print.
+🇺🇸 **English** · 🇧🇷 [Português](README.pt-BR.md) · 🇪🇸 [Español](README.es.md)
+
+AI-focused clone of Lightshot/prntscr for Windows. Capture a screen region, annotate it (arrows, shapes, colors), copy / save / upload / share, and **ask an AI about the screenshot**.
+
+📖 **Documentation:** https://thiagovasconcelosti.github.io/AiShot/ (Usage guide + Technical docs, in EN/PT/ES)
 
 - **.NET 10 / C# / WinForms** — Windows only.
-- Fica no **system tray**. Atalho global padrão: **PrintScreen**.
-- Duplo-clique no ícone ou menu → captura; menu → **Configurações**.
+- Lives in the **system tray**. Global hotkey (default **PrintScreen**).
+- In-place editing overlay (shadcn-dark aesthetic), multi-monitor.
 
-## Funcionalidades
+## Features
 
-- Captura de região multi-monitor (overlay escurecido estilo Lightshot).
-- Editor: seta, retângulo, elipse, linha, lápis, texto, cor e espessura, Undo (Ctrl+Z).
-- **Copiar** (clipboard), **Salvar** (PNG/JPG), **Upload** (freeimage.host / imgbb), **Perguntar à IA**.
-- IA: provider `anthropic` ou `openai`, **fallback** automático e **IA de visão opcional**.
-  Quando a visão está ativa, ela descreve a imagem **antes** da IA principal responder.
+- Region capture over the whole virtual desktop (Lightshot-style dimmed overlay).
+- Editor: arrow, rectangle, ellipse, line, pen, text, color & thickness, undo (Ctrl+Z).
+- **Copy** (clipboard), **Save** (PNG/JPG), **Open in Paint**, **Upload** & **Share** (freeimage.host / imgbb).
+- **Ask AI** about the screenshot — continuous chat, provider `anthropic` or `openai`, automatic **fallback** and optional **vision AI**. When vision is on, it describes the image *before* the main AI answers.
 
-## Configuração
+## Install
 
-Edite `appsettings.json` (ao lado do executável) ou use **Configurações** no tray.
-Tudo pode ser sobrescrito por variáveis de ambiente com prefixo `AISHOT_`:
+**Chocolatey** (once approved):
+```sh
+choco install aishot
+```
 
-| Var | Efeito |
-|-----|--------|
-| `AISHOT_AI__PROVIDER` | `anthropic` ou `openai` |
-| `AISHOT_AI__APIKEY` | chave da IA principal |
-| `AISHOT_AI__MODEL` | modelo principal |
-| `AISHOT_AI__FALLBACK__APIKEY` | chave do fallback |
-| `AISHOT_AI__VISION__ENABLED` | `true`/`false` |
-| `AISHOT_AI__VISION__APIKEY` | chave da IA de visão |
-| `AISHOT_IMAGEUPLOAD__SERVICE` | `freeimage` ou `imgbb` |
-| `AISHOT_IMAGEUPLOAD__APIKEY` | chave do serviço de imagem |
-| `AISHOT_HOTKEY` | ex.: `PrintScreen`, `Ctrl+Alt+S` |
+**Installer / portable:** download from the [latest release](https://github.com/thiagovasconcelosti/AiShot/releases/latest):
+- `AiShot-Setup-x.y.z.exe` — per-user installer (no admin), shortcuts + optional run-at-startup.
+- `AiShot.exe` — single portable executable (no .NET install required).
 
-## Build / Run
+## Configuration
+
+API keys are **encrypted with DPAPI** and stored in `%APPDATA%\AiShot\appsettings.json` — never in plain text. Configure via the **Settings** window in the tray, or environment variables `AISHOT_*` (they take precedence). Works with OpenAI-compatible providers (OpenAI, DeepSeek, OpenRouter) and Anthropic.
+
+See the [Usage guide](https://thiagovasconcelosti.github.io/AiShot/#/usage) and [Technical docs](https://thiagovasconcelosti.github.io/AiShot/#/technical).
+
+## Build
 
 ```sh
 dotnet build src/AiShot/AiShot.csproj -c Release
-dotnet run --project src/AiShot/AiShot.csproj
 ```
 
-A IA de visão (se ativada) sempre roda primeiro, gerando o contexto que a IA
-principal usa para responder à sua pergunta.
-
-## Segurança das credenciais
-
-As chaves de API **não ficam em texto puro**. São cifradas com **DPAPI**
-(escopo do usuário do Windows) e guardadas em
-`%APPDATA%\AiShot\appsettings.json` — um arquivo copiado para outra máquina ou
-outro usuário fica inútil. Na primeira execução, um `appsettings.json` legado
-(ao lado do executável) é migrado automaticamente para esse local cifrado.
-
-O `appsettings.json` versionado no repositório tem as chaves **vazias**; nunca
-comite chaves reais. Para configurar, use **Configurações** no tray ou as
-variáveis de ambiente `AISHOT_*` (têm precedência e não tocam o disco).
-
-## Distribuição
-
-Build self-contained comprimido (um único `.exe`, ~49 MB, roda sem .NET instalado):
-
+Self-contained single file (runs without .NET installed):
 ```sh
 dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 \
   --self-contained true -p:PublishSingleFile=true \
@@ -64,6 +48,6 @@ dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 \
   -p:EnableCompressionInSingleFile=true -p:DebugType=none
 ```
 
-## Licença
+## License
 
 [MIT](LICENSE) © 2026 Thiago Vasconcelos
