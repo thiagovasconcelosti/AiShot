@@ -10,6 +10,8 @@ namespace AiShot.Config;
 public sealed class AppConfig
 {
     public string HotKey { get; set; } = "PrintScreen";
+    /// <summary>Fecha o overlay automaticamente após copiar a imagem.</summary>
+    public bool CloseOnCopy { get; set; } = false;
     public AiConfig Ai { get; set; } = new();
     public ImageUploadConfig ImageUpload { get; set; } = new();
 
@@ -98,6 +100,7 @@ public sealed class AppConfig
         var c = new AppConfig
         {
             HotKey = HotKey,
+            CloseOnCopy = CloseOnCopy,
             Ai = new AiConfig
             {
                 Provider = Ai.Provider,
@@ -138,6 +141,8 @@ public sealed class AppConfig
         string? E(string k) => Environment.GetEnvironmentVariable("AISHOT_" + k);
 
         HotKey = E("HOTKEY") ?? HotKey;
+        var closeCopy = E("CLOSEONCOPY");
+        if (closeCopy is not null && bool.TryParse(closeCopy, out var cc)) CloseOnCopy = cc;
 
         Ai.Provider = E("AI__PROVIDER") ?? Ai.Provider;
         Ai.ApiKey = E("AI__APIKEY") ?? Ai.ApiKey;

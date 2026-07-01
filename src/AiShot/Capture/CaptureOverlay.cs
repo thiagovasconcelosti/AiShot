@@ -313,7 +313,12 @@ public sealed class CaptureOverlay : Form
 
     private void SafeSetClipboardImage(Bitmap image)
     {
-        try { _services.CopyToClipboard(image); Flash("Copiado"); }
+        try
+        {
+            _services.CopyToClipboard(image);
+            if (_services.CloseOnCopy) { Close(); return; }
+            Flash("Copiado");
+        }
         catch (Exception ex) { Flash("Clipboard indisponível: " + ex.Message); }
     }
 
@@ -608,7 +613,11 @@ public sealed class CaptureOverlay : Form
         var f = FlashFont;
         var sz = g.MeasureString(_flash, f);
         int w = (int)sz.Width + 24;
-        var r = new Rectangle((Width - w) / 2, 24, w, 30);
+        // Centraliza no MONITOR PRINCIPAL (não na área virtual de vários monitores).
+        var vb = SystemInformation.VirtualScreen;
+        var prim = Screen.PrimaryScreen!.Bounds;
+        var primClient = new Rectangle(prim.X - vb.X, prim.Y - vb.Y, prim.Width, prim.Height);
+        var r = new Rectangle(primClient.Left + (primClient.Width - w) / 2, primClient.Top + 24, w, 30);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using (var p = Theme.RoundRect(r, 8))
         using (var b = new SolidBrush(Theme.Surface)) { g.FillPath(b, p); using var pen = new Pen(Theme.Border, 1); g.DrawPath(pen, p); }
