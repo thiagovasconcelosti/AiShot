@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://thiagovasconcelosti.github.io/AiShot/
+    about: Usage guide and technical docs (EN/PT/ES) — check here first.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/thiagovasconcelosti/AiShot/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
