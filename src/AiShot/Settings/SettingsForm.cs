@@ -9,13 +9,22 @@ namespace AiShot.Settings;
 
 /// <summary>
 /// Janela de configuração — UI React + shadcn/ui hospedada em WebView2.
-/// A ponte C#↔JS troca a config e a captura de atalho por mensagens.
+/// Usa uma instância WebView2 persistente (pré-aquecida no startup e reaproveitada
+/// via reparent) para abrir instantaneamente. Ponte C#↔JS por mensagens.
 /// </summary>
 public sealed class SettingsForm : Form
 {
+    private static readonly Color DarkBg = Color.FromArgb(11, 11, 13);
+    private static string WvDataDir => Path.Combine(Path.GetTempPath(), "AiShot.WebView2");
+
+    // WebView2 persistente + holder oculto (mantém o browser vivo entre aberturas).
+    private static WebView2? _shared;
+    private static Form? _holder;
+    private static Task? _initTask;
+    private static SettingsForm? _active;
+
     private readonly AppConfig _cfg;
     private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
-    private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
 
     public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null)
     {
@@ -28,25 +37,62 @@ public sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ClientSize = new Size(500, 680);
-        BackColor = Color.FromArgb(11, 11, 13);
+        BackColor = DarkBg;
         Icon = LoadFormIcon();
+    }
 
-        Controls.Add(_web);
+    /// <summary>Cria e navega o WebView2 persistente no startup (1ª abertura rápida).</summary>
+    public static void Prewarm() { _initTask ??= InitSharedAsync(); }
 
-        FormClosed += (_, _) =>
+    private static async Task InitSharedAsync()
+    {
+        // Holder invisível (fora da tela) só para manter o WebView2 vivo/inicializado.
+        _holder = new Form
         {
-            if (_hotKeyService is not null)
-            {
-                _hotKeyService.CaptureMode = false;
-                _hotKeyService.KeyCaptured -= OnHotKeyCaptured;
-            }
+            FormBorderStyle = FormBorderStyle.None,
+            ShowInTaskbar = false,
+            StartPosition = FormStartPosition.Manual,
+            Location = new Point(-32000, -32000),
+            Size = new Size(500, 680),
         };
+        _holder.Show();
+
+        _shared = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
+        _holder.Controls.Add(_shared);
+
+        var env = await CoreWebView2Environment.CreateAsync(userDataFolder: WvDataDir);
+        await _shared.EnsureCoreWebView2Async(env);
+
+        var core = _shared.CoreWebView2;
+        core.SetVirtualHostNameToFolderMapping("aishot.local", ExtractWebUI(), CoreWebView2HostResourceAccessKind.Allow);
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+        core.Settings.IsStatusBarEnabled = false;
+        core.WebMessageReceived += StaticOnWebMessage;
+
+        var loaded = new TaskCompletionSource();
+        void Done(object? s, CoreWebView2NavigationCompletedEventArgs e) { core.NavigationCompleted -= Done; loaded.TrySetResult(); }
+        core.NavigationCompleted += Done;
+        _shared.Source = new Uri("https://aishot.local/index.html");
+        await loaded.Task;
     }
 
     protected override async void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        try { await InitWebAsync(); }
+        try
+        {
+            await (_initTask ??= InitSharedAsync());
+            _active = this;
+            if (_hotKeyService is not null) _hotKeyService.KeyCaptured += OnHotKeyCaptured;
+
+            _shared!.Parent?.Controls.Remove(_shared);
+            _shared.Dock = DockStyle.Fill;
+            Controls.Add(_shared);
+            _shared.Focus();
+
+            SendConfig(); // reenvia a config atual (a React já está montada)
+        }
         catch (Exception ex)
         {
             MessageBox.Show("Falha ao carregar a interface: " + ex.Message, "AiShot",
@@ -54,31 +100,31 @@ public sealed class SettingsForm : Form
         }
     }
 
-    private async Task InitWebAsync()
+    protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        var uiDir = ExtractWebUI();
-        var env = await CoreWebView2Environment.CreateAsync(
-            userDataFolder: Path.Combine(Path.GetTempPath(), "AiShot.WebView2"));
-        await _web.EnsureCoreWebView2Async(env);
-
-        var core = _web.CoreWebView2;
-        core.SetVirtualHostNameToFolderMapping("aishot.local", uiDir, CoreWebView2HostResourceAccessKind.Allow);
-        core.Settings.AreDefaultContextMenusEnabled = false;
-        core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-        core.Settings.IsStatusBarEnabled = false;
-        core.WebMessageReceived += OnWebMessage;
-
+        // Devolve o WebView2 pro holder (mantém vivo pra próxima abertura).
+        if (_shared is not null && _holder is not null)
+        {
+            Controls.Remove(_shared);
+            _holder.Controls.Add(_shared);
+        }
         if (_hotKeyService is not null)
-            _hotKeyService.KeyCaptured += OnHotKeyCaptured;
-
-        _web.Source = new Uri("https://aishot.local/index.html");
+        {
+            _hotKeyService.CaptureMode = false;
+            _hotKeyService.KeyCaptured -= OnHotKeyCaptured;
+        }
+        _active = null;
+        base.OnFormClosed(e);
     }
 
     // ---------- Ponte JS -> C# ----------
-    private void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    private static void StaticOnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+        => _active?.HandleMessage(e.WebMessageAsJson);
+
+    private void HandleMessage(string json)
     {
         JsonDocument doc;
-        try { doc = JsonDocument.Parse(e.WebMessageAsJson); }
+        try { doc = JsonDocument.Parse(json); }
         catch { return; }
         using (doc)
         {
@@ -98,6 +144,7 @@ public sealed class SettingsForm : Form
 
     private void SendConfig()
     {
+        if (_shared?.CoreWebView2 is null) return;
         var ai = _cfg.Ai;
         ai.Fallback ??= new AiEndpoint();
         var payload = new
@@ -119,7 +166,7 @@ public sealed class SettingsForm : Form
                 imageUpload = new { service = _cfg.ImageUpload.Service, apiKey = _cfg.ImageUpload.ApiKey },
             },
         };
-        _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
+        _shared.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
     }
 
     private void Save(JsonElement c)
@@ -161,11 +208,10 @@ public sealed class SettingsForm : Form
 
     private void OnHotKeyCaptured(Keys vk)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (_shared?.CoreWebView2 is null) return;
         if (InvokeRequired) { BeginInvoke(new Action<Keys>(OnHotKeyCaptured), vk); return; }
-        var combo = ComboString(Control.ModifierKeys, vk);
-        var msg = JsonSerializer.Serialize(new { type = "hotkeyCaptured", combo });
-        _web.CoreWebView2.PostWebMessageAsJson(msg);
+        var msg = JsonSerializer.Serialize(new { type = "hotkeyCaptured", combo = ComboString(Control.ModifierKeys, vk) });
+        _shared.CoreWebView2.PostWebMessageAsJson(msg);
     }
 
     private static string ComboString(Keys mods, Keys key)
@@ -187,13 +233,13 @@ public sealed class SettingsForm : Form
     }
 
     // ---------- Recursos ----------
-    /// <summary>Extrai a UI web embutida para uma pasta temporária.</summary>
     private static string ExtractWebUI()
     {
         var version = typeof(SettingsForm).Assembly.GetName().Version?.ToString() ?? "0";
         var dir = Path.Combine(Path.GetTempPath(), "AiShot.webui", version);
-        var asm = Assembly.GetExecutingAssembly();
+        if (File.Exists(Path.Combine(dir, "index.html"))) return dir; // cache
 
+        var asm = Assembly.GetExecutingAssembly();
         foreach (var res in asm.GetManifestResourceNames().Where(n => n.StartsWith("webui/", StringComparison.Ordinal)))
         {
             var rel = res["webui/".Length..].Replace('/', Path.DirectorySeparatorChar);
