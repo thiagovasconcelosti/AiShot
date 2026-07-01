@@ -34,7 +34,7 @@ public sealed class SettingsForm : Form
 
         Text = "AiShot — Configurações";
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        FormBorderStyle = FormBorderStyle.None;   // header do React é a barra
         MaximizeBox = false;
         MinimizeBox = false;
         ClientSize = new Size(500, 680);
@@ -48,19 +48,23 @@ public sealed class SettingsForm : Form
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern int SendMessage(IntPtr hwnd, int msg, int wParam, int lParam);
 
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // Title bar escura (Win10 1809+/11) + cor e texto (Win11 22000+).
-        int dark = 1;
-        DwmSetWindowAttribute(Handle, 20, ref dark, sizeof(int));       // DWMWA_USE_IMMERSIVE_DARK_MODE
-        int caption = 0x000D0B0B;                                        // COLORREF (BGR) do #0B0B0D
-        DwmSetWindowAttribute(Handle, 35, ref caption, sizeof(int));     // DWMWA_CAPTION_COLOR
-        int text = 0x00FAFAFA;
-        DwmSetWindowAttribute(Handle, 36, ref text, sizeof(int));        // DWMWA_TEXT_COLOR
         int border = 0x002A2727;                                         // #27272A
         DwmSetWindowAttribute(Handle, 34, ref border, sizeof(int));      // DWMWA_BORDER_COLOR
+        int round = 2;                                                   // DWMWCP_ROUND
+        DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));       // DWMWA_WINDOW_CORNER_PREFERENCE
+    }
+
+    /// <summary>Inicia o arraste da janela (chamado pelo header do React).</summary>
+    private void StartDrag()
+    {
+        ReleaseCapture();
+        SendMessage(Handle, 0x00A1 /*WM_NCLBUTTONDOWN*/, 0x2 /*HTCAPTION*/, 0);
     }
 
     /// <summary>Pré-cria o ambiente WebView2 (barato) no startup — 1ª abertura rápida.</summary>
@@ -133,6 +137,7 @@ public sealed class SettingsForm : Form
                 case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
                 case "hotkeyStart": if (_hotKeyService is not null) _hotKeyService.CaptureMode = true; break;
                 case "hotkeyStop": if (_hotKeyService is not null) _hotKeyService.CaptureMode = false; break;
+                case "dragStart": StartDrag(); break;
                 case "openUrl": OpenUrl(root.TryGetProperty("url", out var u) ? u.GetString() : null); break;
             }
         }

@@ -22,6 +22,9 @@ export default function App() {
     bridge.onHotkey((combo) =>
       setCfg((c) => (c ? { ...c, hotKey: combo } : c)),
     )
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") bridge.cancel() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
   }, [])
 
   if (!cfg) return <div className="p-6 text-muted-foreground">Carregando…</div>
@@ -33,12 +36,23 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex items-center gap-3 px-5 py-3.5 border-b">
-        <img src="icon.png" alt="" className="h-8 w-8" />
-        <div>
+      <header
+        onMouseDown={(e) => { if (e.button === 0) bridge.dragStart() }}
+        className="flex items-center gap-3 px-5 py-3.5 border-b select-none"
+      >
+        <img src="icon.png" alt="" className="h-8 w-8" draggable={false} />
+        <div className="flex-1">
           <h1 className="text-[15px] font-semibold leading-tight">Configurações</h1>
           <p className="text-xs text-muted-foreground">Atalho, provedores de IA e upload</p>
         </div>
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => bridge.cancel()}
+          className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+          aria-label="Fechar"
+        >
+          <X size={18} />
+        </button>
       </header>
 
       <main className="flex-1 overflow-y-auto px-5 py-4 space-y-3">

@@ -56,6 +56,7 @@ export const bridge = {
 
   hotkeyStart: () => post({ type: "hotkeyStart" }),
   hotkeyStop: () => post({ type: "hotkeyStop" }),
+  dragStart: () => post({ type: "dragStart" }),
   save: (config: Config) => post({ type: "save", config }),
   cancel: () => post({ type: "cancel" }),
   openUrl: (url: string) => post({ type: "openUrl", url }),
