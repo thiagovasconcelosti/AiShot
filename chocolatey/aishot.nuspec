@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>aishot</id>
+    <version>0.1.0</version>
+    <packageSourceUrl>https://github.com/thiagovasconcelosti/AiShot/tree/master/chocolatey</packageSourceUrl>
+    <owners>thiagovasconcelosti</owners>
+    <title>AiShot</title>
+    <authors>Thiago Vasconcelos</authors>
+    <projectUrl>https://github.com/thiagovasconcelosti/AiShot</projectUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/thiagovasconcelosti/AiShot@master/installer/aishot.png</iconUrl>
+    <licenseUrl>https://github.com/thiagovasconcelosti/AiShot/blob/master/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/thiagovasconcelosti/AiShot</projectSourceUrl>
+    <docsUrl>https://github.com/thiagovasconcelosti/AiShot/blob/master/README.md</docsUrl>
+    <bugTrackerUrl>https://github.com/thiagovasconcelosti/AiShot/issues</bugTrackerUrl>
+    <tags>screenshot ai lightshot capture annotation ocr deepseek openai tray windows</tags>
+    <summary>Captura de tela com IA (estilo Lightshot) para Windows.</summary>
+    <description>
+AiShot é um clone do Lightshot/prntscr voltado para IA, para Windows.
+
+## Recursos
+- Captura de região in-place (estilo Lightshot), multi-monitor
+- Anotações: seta, retângulo, elipse, linha, lápis, texto e cores
+- Copiar, salvar, abrir no Paint, upload e compartilhar
+- **Perguntar à IA** sobre o print (chat contínuo; visão -&gt; IA principal -&gt; fallback)
+- Fica na bandeja do sistema, atalho global (padrão PrintScreen)
+- Credenciais cifradas com DPAPI (armazenadas em %APPDATA%)
+
+## Configuração
+Configure as chaves de API na janela de Configurações (bandeja) ou por variáveis de ambiente `AISHOT_*`. Suporta provedores compatíveis com OpenAI (ex.: OpenAI, DeepSeek, OpenRouter) e Anthropic.
+    </description>
+    <releaseNotes>https://github.com/thiagovasconcelosti/AiShot/releases/tag/v0.1.0</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
