@@ -11,6 +11,14 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
 
+        // Modo de verificação de UI: abre só a tela de Configurações.
+        if (Environment.GetCommandLineArgs().Contains("--settings"))
+        {
+            Application.ThreadException += (_, e) => ShowFatal(e.Exception);
+            Application.Run(new Settings.SettingsForm(Config.AppConfig.Load()));
+            return;
+        }
+
         // Rede de segurança para exceções não tratadas (async void, threads).
         Application.ThreadException += (_, e) => ShowFatal(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => ShowFatal(e.ExceptionObject as Exception);

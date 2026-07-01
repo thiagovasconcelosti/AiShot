@@ -23,4 +23,8 @@
     <EmbeddedResource Include="Assets\app.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="SunnyUI" Version="3.9.7" />
+  </ItemGroup>
+
 </Project>
