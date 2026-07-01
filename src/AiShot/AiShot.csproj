@@ -23,8 +23,22 @@
     <EmbeddedResource Include="Assets\app.ico" />
   </ItemGroup>
 
+  <!-- UI web (React + shadcn) embutida: painel de Configurações -->
   <ItemGroup>
-    <PackageReference Include="SunnyUI" Version="3.9.7" />
+    <EmbeddedResource Include="..\..\web\dist\**\*">
+      <LogicalName>webui/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
+  </ItemGroup>
+
+  <!-- Rebuild do bundle web quando o fonte muda (incremental) -->
+  <Target Name="BuildWebUI" BeforeTargets="BeforeBuild"
+          Inputs="$(MSBuildProjectDirectory)\..\..\web\src\**\*;$(MSBuildProjectDirectory)\..\..\web\index.html;$(MSBuildProjectDirectory)\..\..\web\package.json"
+          Outputs="$(MSBuildProjectDirectory)\..\..\web\dist\index.html">
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\..\..\web" />
+  </Target>
 
 </Project>
