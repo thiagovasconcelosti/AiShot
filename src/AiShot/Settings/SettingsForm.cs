@@ -10,6 +10,7 @@ namespace AiShot.Settings;
 public sealed class SettingsForm : Form
 {
     private readonly AppConfig _cfg;
+    private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
 
     private readonly TextBox _hotKey = new();
     private readonly ComboBox _provider = new() { DropDownStyle = ComboBoxStyle.DropDownList };
@@ -29,9 +30,10 @@ public sealed class SettingsForm : Form
     private readonly ComboBox _imgService = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox _imgApiKey = new() { UseSystemPasswordChar = true };
 
-    public SettingsForm(AppConfig cfg)
+    public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null)
     {
         _cfg = cfg;
+        _hotKeyService = hotKeyService;
         Text = "AiShot — Configurações";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -125,9 +127,32 @@ public sealed class SettingsForm : Form
         _hotKey.Cursor = Cursors.Hand;
         _hotKey.TabStop = true;
         _hotKey.Dock = DockStyle.Fill;
-        _hotKey.GotFocus += (_, _) => _hotKey.BackColor = Color.FromArgb(230, 240, 255);
-        _hotKey.LostFocus += (_, _) => _hotKey.BackColor = SystemColors.Window;
-        _hotKey.KeyDown += HotKey_KeyDown;
+        _hotKey.GotFocus += (_, _) =>
+        {
+            _hotKey.BackColor = Color.FromArgb(230, 240, 255);
+            // Suspende o atalho global enquanto captura (PrintScreen não dispara print).
+            if (_hotKeyService is not null) _hotKeyService.CaptureMode = true;
+        };
+        _hotKey.LostFocus += (_, _) =>
+        {
+            _hotKey.BackColor = SystemColors.Window;
+            if (_hotKeyService is not null) _hotKeyService.CaptureMode = false;
+        };
+
+        if (_hotKeyService is not null)
+            _hotKeyService.KeyCaptured += OnHotKeyCaptured; // via hook (suprime a tecla)
+        else
+            _hotKey.KeyDown += HotKey_KeyDown;             // fallback sem serviço
+
+        // Garante restaurar o atalho ao fechar a janela.
+        FormClosed += (_, _) =>
+        {
+            if (_hotKeyService is not null)
+            {
+                _hotKeyService.CaptureMode = false;
+                _hotKeyService.KeyCaptured -= OnHotKeyCaptured;
+            }
+        };
 
         var clear = new Button { Text = "Limpar", Width = 70, Dock = DockStyle.Right };
         clear.Click += (_, _) => { _hotKey.Text = ""; _hotKey.Focus(); };
@@ -137,6 +162,21 @@ public sealed class SettingsForm : Form
         panel.Controls.Add(clear);   // Right por cima
         clear.BringToFront();
         return panel;
+    }
+
+    /// <summary>Recebe a tecla capturada pelo hook global e monta a combinação.</summary>
+    private void OnHotKeyCaptured(Keys vk)
+    {
+        if (IsDisposed) return;
+        if (InvokeRequired) { BeginInvoke(new Action<Keys>(OnHotKeyCaptured), vk); return; }
+
+        var mods = Control.ModifierKeys;
+        var parts = new List<string>();
+        if (mods.HasFlag(Keys.Control)) parts.Add("Ctrl");
+        if (mods.HasFlag(Keys.Alt)) parts.Add("Alt");
+        if (mods.HasFlag(Keys.Shift)) parts.Add("Shift");
+        parts.Add(vk.ToString()); // ex.: PrintScreen, F10, A
+        _hotKey.Text = string.Join("+", parts);
     }
 
     private static void HotKey_KeyDown(object? sender, KeyEventArgs e)

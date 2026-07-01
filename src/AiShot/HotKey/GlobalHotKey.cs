@@ -56,6 +56,16 @@ public sealed class GlobalHotKey : IDisposable
 
     public event EventHandler? Pressed;
 
+    /// <summary>
+    /// Modo de captura (usado pela tela de Configurações): enquanto ativo, o
+    /// atalho normal NÃO dispara; a tecla é suprimida (não abre Snipping) e
+    /// enviada via <see cref="KeyCaptured"/> para o campo de configuração.
+    /// </summary>
+    public bool CaptureMode { get; set; }
+
+    /// <summary>Tecla (não-modificadora) pressionada durante o modo de captura.</summary>
+    public event Action<Keys>? KeyCaptured;
+
     public GlobalHotKey()
     {
         _proc = HookCallback;
@@ -87,6 +97,25 @@ public sealed class GlobalHotKey : IDisposable
             if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
             {
                 var data = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+
+                // Modo de captura: entrega a tecla ao campo de config e suprime.
+                if (CaptureMode)
+                {
+                    var vk = (Keys)data.vkCode;
+                    if (!IsModifierKey(vk))
+                    {
+                        var cb = KeyCaptured;
+                        if (cb is not null)
+                        {
+                            var ctx = System.Threading.SynchronizationContext.Current;
+                            if (ctx is not null) ctx.Post(_ => cb(vk), null);
+                            else cb(vk);
+                        }
+                        return 1; // suprime a tecla principal (sem Snipping, sem captura)
+                    }
+                    return CallNextHookEx(_hook, nCode, wParam, lParam); // deixa modificador passar
+                }
+
                 if (data.vkCode == _targetVk && ModifiersMatch())
                 {
                     // Dispara fora do contexto do hook para não travar a fila de teclado.
@@ -104,6 +133,12 @@ public sealed class GlobalHotKey : IDisposable
         }
         return CallNextHookEx(_hook, nCode, wParam, lParam);
     }
+
+    private static bool IsModifierKey(Keys vk) => vk is
+        Keys.ControlKey or Keys.LControlKey or Keys.RControlKey or
+        Keys.ShiftKey or Keys.LShiftKey or Keys.RShiftKey or
+        Keys.Menu or Keys.LMenu or Keys.RMenu or
+        Keys.LWin or Keys.RWin;
 
     private static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
 

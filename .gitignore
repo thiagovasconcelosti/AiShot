@@ -8,3 +8,5 @@ dist/
 appsettings.local.json
 src/AiShot/appsettings.json
 *.suo
+
+*.nupkg
