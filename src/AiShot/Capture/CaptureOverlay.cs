@@ -38,16 +38,9 @@ public sealed class CaptureOverlay : Form
     private bool _paletteOpen;
     private Rectangle _sidePanelRect;
 
-    // Chat
+    // Chat (componente extraído) + cancelamento compartilhado (chat/upload)
     private readonly CancellationTokenSource _cts = new();
-    private bool _chatOpen;
-    private bool _chatBusy;
-    private Ai.IAiChatSession? _session;
-    private readonly List<(string role, string text)> _messages = new();
-    private Rectangle _chatBubble, _chatSendBtn, _chatViewport;
-    private int _chatScroll;
-    private int _chatContentHeight;
-    private TextBox? _chatInput;
+    private readonly ChatPanel _chat;
     private TextBox? _textInput; // ferramenta de texto
 
     private static readonly Color[] Palette =
@@ -60,6 +53,7 @@ public sealed class CaptureOverlay : Form
     public CaptureOverlay(ICaptureServices services)
     {
         _services = services;
+        _chat = new ChatPanel(this, () => _services.StartChat(RenderFinal()), _cts.Token);
         var vb = SystemInformation.VirtualScreen;
 
         FormBorderStyle = FormBorderStyle.None;
@@ -93,7 +87,7 @@ public sealed class CaptureOverlay : Form
         if (e.KeyCode == Keys.Escape)
         {
             if (_textInput is not null) { CancelTextInput(); Invalidate(); return; }
-            if (_chatOpen) { CloseChat(); Invalidate(); return; }
+            if (_chat.IsOpen) { _chat.Close(); return; }
             Close();
             return;
         }
@@ -119,11 +113,7 @@ public sealed class CaptureOverlay : Form
         }
 
         // Edição: ordem de hit-test
-        if (_chatOpen)
-        {
-            if (_chatSendBtn.Contains(e.Location)) { _ = SendChatAsync(); return; }
-            if (_chatBubble.Contains(e.Location)) return; // clique dentro do balão
-        }
+        if (_chat.OnMouseDown(e.Location)) return;
         if (_paletteOpen)
         {
             foreach (var (r, c) in _swatches)
@@ -258,7 +248,7 @@ public sealed class CaptureOverlay : Form
             case "paint": OpenInPaint(); break;
             case "upload": _ = DoUploadAsync(); break;
             case "share": _ = DoUploadAsync(share: true); break;
-            case "ai": OpenChat(); break;
+            case "ai": _chat.Open(); break;
             case "close": Close(); break;
         }
     }
@@ -387,91 +377,9 @@ public sealed class CaptureOverlay : Form
         g.DrawString(_hoverTip, f, tb, r, CenterFmt);
     }
 
-    // ---------- Chat IA ----------
-    private void OpenChat()
-    {
-        _chatOpen = true;
-        // Sessão contínua: snapshot da imagem (com anotações) no momento da abertura.
-        _session ??= _services.StartChat(RenderFinal());
-        EnsureChatInput();
-        LayoutChat();
-        _chatInput!.Visible = true;
-        _chatInput.Focus();
-        Invalidate();
-    }
-
-    private void CloseChat()
-    {
-        _chatOpen = false;
-        if (_chatInput is not null) _chatInput.Visible = false;
-    }
-
-    private void EnsureChatInput()
-    {
-        if (_chatInput is not null) return;
-        _chatInput = new TextBox
-        {
-            BorderStyle = BorderStyle.None,
-            BackColor = Color.FromArgb(24, 24, 27),
-            ForeColor = Theme.Text,
-            Font = new Font("Segoe UI", 10.5f),
-            Multiline = false,
-        };
-        _chatInput.KeyDown += (s, e) =>
-        {
-            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = SendChatAsync(); }
-            if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; CloseChat(); Invalidate(); }
-        };
-        Controls.Add(_chatInput);
-    }
-
-    private async Task SendChatAsync()
-    {
-        if (_chatBusy || _chatInput is null || _session is null) return;
-        var q = _chatInput.Text.Trim();
-        if (q.Length == 0) return;
-
-        _messages.Add(("user", q));
-        _chatInput.Clear();
-        _chatBusy = true;
-        _chatInput.Enabled = false;
-        _scrollToBottom = true;
-        Invalidate();
-        try
-        {
-            var ans = await _session.SendAsync(q, _cts.Token).ConfigureAwait(true);
-            if (IsDisposed) return;
-            _messages.Add(("assistant", ans));
-        }
-        catch (OperationCanceledException) { return; } // overlay fechado
-        catch (Exception ex)
-        {
-            if (IsDisposed) return;
-            _messages.Add(("assistant", "Erro: " + ex.Message));
-        }
-        finally
-        {
-            if (!IsDisposed)
-            {
-                _chatBusy = false;
-                if (_chatInput is not null) { _chatInput.Enabled = true; _chatInput.Focus(); }
-                _scrollToBottom = true;
-                Invalidate();
-            }
-        }
-    }
-
-    private bool _scrollToBottom;
-
     protected override void OnMouseWheel(MouseEventArgs e)
     {
-        if (_chatOpen && _chatViewport.Contains(e.Location))
-        {
-            int max = Math.Max(0, _chatContentHeight - _chatViewport.Height);
-            _chatScroll = Math.Max(0, Math.Min(max, _chatScroll - e.Delta));
-            Invalidate();
-            return;
-        }
+        if (_chat.OnMouseWheel(e.Delta, e.Location)) return;
         base.OnMouseWheel(e);
     }
 
@@ -560,7 +468,7 @@ public sealed class CaptureOverlay : Form
             DrawSelectionChrome(g);
             LayoutAndDrawToolbars(g);
             if (_paletteOpen) DrawPalette(g);
-            if (_chatOpen) DrawChat(g);
+            if (_chat.IsOpen) _chat.Draw(g, _sel, MonitorBounds(), _sidePanelRect);
         }
         else
         {
@@ -569,7 +477,7 @@ public sealed class CaptureOverlay : Form
 
         DrawDimensions(g);
         DrawFlash(g);
-        if (_mode == Mode.Editing && !_chatOpen) DrawTooltip(g);
+        if (_mode == Mode.Editing && !_chat.IsOpen) DrawTooltip(g);
     }
 
     private void DrawSelectionChrome(Graphics g)
@@ -672,152 +580,11 @@ public sealed class CaptureOverlay : Form
         }
     }
 
-    private static readonly Font ChatFont = new("Segoe UI", 10f);
     // Recursos GDI reaproveitados no OnPaint (evita alocar por frame).
     private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
     private static readonly Font TooltipFont = new("Segoe UI", 8.5f);
     private static readonly Font DimFont = new("Segoe UI", 9f, FontStyle.Bold);
     private static readonly Font FlashFont = new("Segoe UI", 9.5f);
-    private static readonly Font ChatHeaderFont = new("Segoe UI Semibold", 10.5f);
-
-    private void DrawChat(Graphics g)
-    {
-        LayoutChat();
-        Theme.DrawPanel(g, _chatBubble);
-        var inner = Rectangle.Inflate(_chatBubble, -14, -14);
-
-        // --- cabeçalho ---
-        using (var hb = new SolidBrush(Theme.Text))
-            g.DrawString(Icons.Sparkle, Icons.Cached(18), hb, inner.Left, inner.Top - 2);
-        using (var tb = new SolidBrush(Theme.Text))
-            g.DrawString("Perguntar à IA", ChatHeaderFont, tb, inner.Left + 26, inner.Top);
-        using (var sep = new Pen(Theme.BorderSubtle, 1))
-            g.DrawLine(sep, inner.Left, inner.Top + 26, inner.Right, inner.Top + 26);
-
-        // --- viewport rolável (timeline) ---
-        int inputH = 34;
-        _chatViewport = new Rectangle(inner.Left, inner.Top + 34, inner.Width, inner.Bottom - inputH - 8 - (inner.Top + 34));
-
-        var oldClip = g.Clip;
-        g.SetClip(_chatViewport);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-
-        int maxBubbleW = (int)(_chatViewport.Width * 0.78);
-        int y = _chatViewport.Top - _chatScroll;
-        const int gap = 8, padX = 11, padY = 8;
-
-        foreach (var (role, text) in _messages)
-        {
-            bool user = role == "user";
-            var sz = g.MeasureString(text, ChatFont, maxBubbleW - padX * 2);
-            int bw = (int)Math.Ceiling(sz.Width) + padX * 2;
-            int bh = (int)Math.Ceiling(sz.Height) + padY * 2;
-            int bx = user ? _chatViewport.Right - bw : _chatViewport.Left;
-            var bub = new Rectangle(bx, y, bw, bh);
-
-            using (var p = Theme.RoundRect(bub, 10))
-            using (var fill = new SolidBrush(user ? Color.White : Theme.SurfaceHover))
-                g.FillPath(fill, p);
-            using (var tb = new SolidBrush(user ? Color.Black : Theme.Text))
-                g.DrawString(text, ChatFont, tb, new RectangleF(bub.X + padX, bub.Y + padY, maxBubbleW - padX * 2, bh));
-
-            y += bh + gap;
-        }
-
-        // indicador "digitando…"
-        if (_chatBusy)
-        {
-            var bub = new Rectangle(_chatViewport.Left, y, 70, 30);
-            using (var p = Theme.RoundRect(bub, 10))
-            using (var fill = new SolidBrush(Theme.SurfaceHover))
-                g.FillPath(fill, p);
-            using (var tb = new SolidBrush(Theme.TextMuted))
-                g.DrawString("• • •", ChatFont, tb, bub.X + padX, bub.Y + padY);
-            y += 30 + gap;
-        }
-
-        _chatContentHeight = (y + _chatScroll) - _chatViewport.Top;
-
-        if (_messages.Count == 0 && !_chatBusy)
-        {
-            using var ph = new SolidBrush(Theme.TextMuted);
-            g.DrawString("Pergunte algo sobre o print…", ChatFont, ph, _chatViewport.Left, _chatViewport.Top + 4);
-        }
-
-        g.Clip = oldClip;
-
-        // auto-scroll pro fim
-        if (_scrollToBottom)
-        {
-            _chatScroll = Math.Max(0, _chatContentHeight - _chatViewport.Height);
-            _scrollToBottom = false;
-        }
-
-        // --- input + enviar ---
-        var inputRow = new Rectangle(inner.Left, inner.Bottom - inputH, inner.Width, inputH);
-        var sendBtn = new Rectangle(inputRow.Right - 32, inputRow.Top + 2, 30, 30);
-        _chatSendBtn = sendBtn;
-
-        using (var ip = Theme.RoundRect(new Rectangle(inputRow.Left, inputRow.Top, inputRow.Width - 38, inputH), 9))
-        using (var ifill = new SolidBrush(Color.FromArgb(24, 24, 27)))
-        using (var ipen = new Pen(Theme.Border, 1))
-        { g.FillPath(ifill, ip); g.DrawPath(ipen, ip); }
-
-        if (_chatInput is not null)
-            _chatInput.Bounds = new Rectangle(inputRow.Left + 10, inputRow.Top + 8, inputRow.Width - 38 - 18, 20);
-
-        using (var p = Theme.RoundRect(sendBtn, 9))
-        using (var bb = new SolidBrush(_chatBusy ? Theme.SurfaceHover : Color.White))
-            g.FillPath(bb, p);
-        using (var sb = new SolidBrush(_chatBusy ? Theme.TextMuted : Color.Black))
-            g.DrawString(Icons.Send, Icons.Cached(16), sb, sendBtn, CenterFmt);
-    }
-
-    private void LayoutChat()
-    {
-        var mon = MonitorBounds();
-        const int w = 360, h = 340, m = 12;
-
-        // Considera a toolbar lateral ocupando um dos lados da seleção.
-        bool sideOnRight = !_sidePanelRect.IsEmpty && _sidePanelRect.Left >= _sel.Right;
-        bool sideOnLeft = !_sidePanelRect.IsEmpty && _sidePanelRect.Right <= _sel.Left;
-        int rightEdge = sideOnRight ? _sidePanelRect.Right : _sel.Right;
-        int leftEdge = sideOnLeft ? _sidePanelRect.Left : _sel.Left;
-
-        // y/x alinhados e clampados ao monitor
-        int yAligned = Math.Max(mon.Top + 8, Math.Min(_sel.Top, mon.Bottom - h - 8));
-        int xCentered = Math.Max(mon.Left + 8, Math.Min(_sel.Left + (_sel.Width - w) / 2, mon.Right - w - 8));
-
-        // Candidatos em ordem de preferência (depois da marcação, sem cobrir o print).
-        var candidates = new[]
-        {
-            new Rectangle(rightEdge + m, yAligned, w, h),          // direita
-            new Rectangle(leftEdge - m - w, yAligned, w, h),       // esquerda
-            new Rectangle(xCentered, _sel.Bottom + m, w, h),       // abaixo
-            new Rectangle(xCentered, _sel.Top - m - h, w, h),      // acima
-        };
-
-        foreach (var c in candidates)
-        {
-            bool insideMonitor = c.Left >= mon.Left + 4 && c.Top >= mon.Top + 4 &&
-                                 c.Right <= mon.Right - 4 && c.Bottom <= mon.Bottom - 4;
-            if (insideMonitor && !c.IntersectsWith(_sel)) { _chatBubble = c; return; }
-        }
-
-        // Sem espaço livre (ex.: recorte ocupa a tela toda): sobrepõe o print,
-        // mas nunca a toolbar lateral, e sempre dentro do monitor.
-        int fx = Math.Max(mon.Left + 8, Math.Min(_sel.Left + 8, mon.Right - w - 8));
-        int fy = Math.Max(mon.Top + 8, Math.Min(_sel.Top + 8, mon.Bottom - h - 8));
-        var cand = new Rectangle(fx, fy, w, h);
-        if (!_sidePanelRect.IsEmpty && cand.IntersectsWith(_sidePanelRect))
-        {
-            // Joga o chat pro lado oposto à toolbar lateral.
-            bool sideRight = _sidePanelRect.Left + _sidePanelRect.Width / 2 >= mon.Left + mon.Width / 2;
-            fx = sideRight ? _sidePanelRect.Left - m - w : _sidePanelRect.Right + m;
-            fx = Math.Max(mon.Left + 8, Math.Min(fx, mon.Right - w - 8));
-        }
-        _chatBubble = new Rectangle(fx, fy, w, h);
-    }
 
     private void DrawDimensions(Graphics g)
     {

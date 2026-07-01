@@ -71,7 +71,7 @@ public sealed class SettingsForm : Form
         }
 
         Section("Atalho");
-        Row("Tecla", _hotKey);
+        Row("Tecla", BuildHotKeyRow());
 
         Section("IA principal");
         Row("Provider", _provider);
@@ -116,6 +116,44 @@ public sealed class SettingsForm : Form
         CancelButton = btnCancel;
 
         LoadValues();
+    }
+
+    /// <summary>Campo de atalho que captura a combinação pressionada + botão Limpar.</summary>
+    private Control BuildHotKeyRow()
+    {
+        _hotKey.ReadOnly = true;
+        _hotKey.Cursor = Cursors.Hand;
+        _hotKey.TabStop = true;
+        _hotKey.Dock = DockStyle.Fill;
+        _hotKey.GotFocus += (_, _) => _hotKey.BackColor = Color.FromArgb(230, 240, 255);
+        _hotKey.LostFocus += (_, _) => _hotKey.BackColor = SystemColors.Window;
+        _hotKey.KeyDown += HotKey_KeyDown;
+
+        var clear = new Button { Text = "Limpar", Width = 70, Dock = DockStyle.Right };
+        clear.Click += (_, _) => { _hotKey.Text = ""; _hotKey.Focus(); };
+
+        var panel = new Panel { Height = 24 };
+        panel.Controls.Add(_hotKey); // Fill primeiro
+        panel.Controls.Add(clear);   // Right por cima
+        clear.BringToFront();
+        return panel;
+    }
+
+    private static void HotKey_KeyDown(object? sender, KeyEventArgs e)
+    {
+        e.SuppressKeyPress = true;
+        var box = (TextBox)sender!;
+
+        // Ignora quando só um modificador é pressionado (aguarda a tecla principal).
+        if (e.KeyCode is Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LWin or Keys.RWin)
+            return;
+
+        var parts = new List<string>();
+        if (e.Control) parts.Add("Ctrl");
+        if (e.Alt) parts.Add("Alt");
+        if (e.Shift) parts.Add("Shift");
+        parts.Add(e.KeyCode.ToString()); // ex.: PrintScreen, F10, A
+        box.Text = string.Join("+", parts);
     }
 
     private void LoadValues()
