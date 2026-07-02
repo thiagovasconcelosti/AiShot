@@ -24,6 +24,8 @@ public sealed class AppHost : ICaptureServices
         _ai = new AiService(cfg, http);
     }
 
+    public bool CloseOnCopy => _cfg.CloseOnCopy;
+
     public void CopyToClipboard(Bitmap finalImage)
     {
         Clipboard.SetImage(finalImage);

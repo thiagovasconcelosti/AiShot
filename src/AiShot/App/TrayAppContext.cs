@@ -38,6 +38,7 @@ public sealed class TrayAppContext : ApplicationContext
         RegisterHotKey();
 
         CleanupTempFiles();
+        Settings.SettingsForm.Prewarm(); // aquece o WebView2 pra abrir Configurações rápido
     }
 
     /// <summary>Remove PNGs temporários do app (abertos no Paint) com mais de 1h.</summary>
@@ -126,7 +127,7 @@ public sealed class TrayAppContext : ApplicationContext
 
     private void OpenSettings()
     {
-        using var form = new SettingsForm(_cfg);
+        using var form = new SettingsForm(_cfg, _hotKey);
         if (form.ShowDialog() == DialogResult.OK)
         {
             // Recarrega config + recria host e re-registra atalho.

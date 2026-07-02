@@ -8,3 +8,7 @@ dist/
 appsettings.local.json
 src/AiShot/appsettings.json
 *.suo
+
+*.nupkg
+web/node_modules/
+web/dist/

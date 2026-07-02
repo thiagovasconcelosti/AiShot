@@ -1,204 +1,308 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows.Forms;
 using AiShot.Config;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace AiShot.Settings;
 
 /// <summary>
-/// Janela de configuração simples: credenciais de IA, provider, fallback,
-/// visão e serviço de upload de imagem. Salva em appsettings.json.
+/// Janela de configuração — UI React + shadcn/ui hospedada em WebView2.
+/// O WebView2 é criado ao abrir e destruído ao fechar (memória ociosa ~0).
+/// Só o ambiente (barato, sem browser) fica em cache p/ acelerar a abertura.
+/// Ponte C#↔JS por mensagens.
 /// </summary>
 public sealed class SettingsForm : Form
 {
+    private static readonly Color DarkBg = Color.FromArgb(11, 11, 13);
+    private static string WvDataDir => Path.Combine(Path.GetTempPath(), "AiShot.WebView2");
+
+    // Ambiente compartilhado (não spawna browser) — só encurta a criação.
+    private static Task<CoreWebView2Environment>? _envTask;
+
     private readonly AppConfig _cfg;
+    private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
+    private readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
+    private readonly LoadingOverlay _loading = new() { Dock = DockStyle.Fill };
 
-    private readonly TextBox _hotKey = new();
-    private readonly ComboBox _provider = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly TextBox _apiKey = new() { UseSystemPasswordChar = true };
-    private readonly TextBox _model = new();
-    private readonly TextBox _baseUrl = new();
-
-    private readonly ComboBox _fbProvider = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly TextBox _fbApiKey = new() { UseSystemPasswordChar = true };
-    private readonly TextBox _fbModel = new();
-
-    private readonly CheckBox _visEnabled = new() { Text = "Ativar IA de visão (lê a imagem antes da IA principal)" };
-    private readonly ComboBox _visProvider = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly TextBox _visApiKey = new() { UseSystemPasswordChar = true };
-    private readonly TextBox _visModel = new();
-
-    private readonly ComboBox _imgService = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly TextBox _imgApiKey = new() { UseSystemPasswordChar = true };
-
-    public SettingsForm(AppConfig cfg)
+    public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null)
     {
         _cfg = cfg;
+        _hotKeyService = hotKeyService;
+
         Text = "AiShot — Configurações";
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        FormBorderStyle = FormBorderStyle.None;   // header do React é a barra
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(460, 620);
-        Font = new Font("Segoe UI", 9f);
+        ClientSize = new Size(500, 680);
+        BackColor = DarkBg;
+        Icon = LoadFormIcon();
+        Controls.Add(_web);
+        Controls.Add(_loading);
+        _loading.BringToFront();
+        _loading.Start();
+    }
 
-        foreach (var c in new[] { _provider, _fbProvider, _visProvider })
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern int SendMessage(IntPtr hwnd, int msg, int wParam, int lParam);
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        int border = 0x002A2727;                                         // #27272A
+        DwmSetWindowAttribute(Handle, 34, ref border, sizeof(int));      // DWMWA_BORDER_COLOR
+        int round = 2;                                                   // DWMWCP_ROUND
+        DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));       // DWMWA_WINDOW_CORNER_PREFERENCE
+    }
+
+    /// <summary>Inicia o arraste da janela (chamado pelo header do React).</summary>
+    private void StartDrag()
+    {
+        ReleaseCapture();
+        SendMessage(Handle, 0x00A1 /*WM_NCLBUTTONDOWN*/, 0x2 /*HTCAPTION*/, 0);
+    }
+
+    /// <summary>Pré-cria o ambiente WebView2 (barato) no startup — 1ª abertura rápida.</summary>
+    public static void Prewarm()
+    {
+        try { _envTask ??= CoreWebView2Environment.CreateAsync(userDataFolder: WvDataDir); }
+        catch { /* runtime ausente — tratado ao abrir */ }
+    }
+
+    protected override async void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        try
         {
-            c.Items.AddRange(new object[] { "anthropic", "openai" });
+            _envTask ??= CoreWebView2Environment.CreateAsync(userDataFolder: WvDataDir);
+            await _web.EnsureCoreWebView2Async(await _envTask);
+
+            var core = _web.CoreWebView2;
+            core.SetVirtualHostNameToFolderMapping("aishot.local", ExtractWebUI(), CoreWebView2HostResourceAccessKind.Allow);
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            core.Settings.IsStatusBarEnabled = false;
+            core.WebMessageReceived += OnWebMessage;
+            core.DOMContentLoaded += (_, _) => HideLoading();
+
+            if (_hotKeyService is not null) _hotKeyService.KeyCaptured += OnHotKeyCaptured;
+
+            _web.Source = new Uri("https://aishot.local/index.html");
         }
-        _imgService.Items.AddRange(new object[] { "freeimage", "imgbb" });
-
-        var layout = new TableLayoutPanel
+        catch (Exception ex)
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            Padding = new Padding(12),
-            AutoScroll = true,
+            HideLoading();
+            MessageBox.Show("Falha ao carregar a interface: " + ex.Message, "AiShot",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void HideLoading()
+    {
+        if (IsDisposed) return;
+        _loading.Stop();
+        _loading.Visible = false;
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        if (_hotKeyService is not null)
+        {
+            _hotKeyService.CaptureMode = false;
+            _hotKeyService.KeyCaptured -= OnHotKeyCaptured;
+        }
+        _web.Dispose(); // encerra os processos do browser -> memória ociosa ~0
+        base.OnFormClosed(e);
+    }
+
+    // ---------- Ponte JS -> C# ----------
+    private void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        JsonDocument doc;
+        try { doc = JsonDocument.Parse(e.WebMessageAsJson); }
+        catch { return; }
+        using (doc)
+        {
+            var root = doc.RootElement;
+            var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
+            switch (type)
+            {
+                case "ready": SendConfig(); break;
+                case "save": Save(root.GetProperty("config")); break;
+                case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
+                case "hotkeyStart": if (_hotKeyService is not null) _hotKeyService.CaptureMode = true; break;
+                case "hotkeyStop": if (_hotKeyService is not null) _hotKeyService.CaptureMode = false; break;
+                case "dragStart": StartDrag(); break;
+                case "openUrl": OpenUrl(root.TryGetProperty("url", out var u) ? u.GetString() : null); break;
+            }
+        }
+    }
+
+    private void SendConfig()
+    {
+        if (_web.CoreWebView2 is null) return;
+        var ai = _cfg.Ai;
+        ai.Fallback ??= new AiEndpoint();
+        var payload = new
+        {
+            type = "config",
+            config = new
+            {
+                hotKey = _cfg.HotKey,
+                closeOnCopy = _cfg.CloseOnCopy,
+                ai = new
+                {
+                    provider = ai.Provider,
+                    apiKey = ai.ApiKey,
+                    model = ai.Model,
+                    baseUrl = ai.BaseUrl,
+                    fallback = new { provider = ai.Fallback.Provider, apiKey = ai.Fallback.ApiKey, model = ai.Fallback.Model, baseUrl = ai.Fallback.BaseUrl },
+                    vision = new { enabled = ai.Vision.Enabled, provider = ai.Vision.Provider, apiKey = ai.Vision.ApiKey, model = ai.Vision.Model, baseUrl = ai.Vision.BaseUrl },
+                },
+                imageUpload = new { service = _cfg.ImageUpload.Service, apiKey = _cfg.ImageUpload.ApiKey },
+            },
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-        void Row(string label, Control c)
-        {
-            layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 6, 6) });
-            c.Dock = DockStyle.Fill;
-            c.Margin = new Padding(0, 3, 0, 3);
-            layout.Controls.Add(c);
-        }
-        void Section(string title)
-        {
-            var l = new Label { Text = title, AutoSize = true, Font = new Font("Segoe UI", 10f, FontStyle.Bold), Margin = new Padding(0, 12, 0, 4) };
-            layout.Controls.Add(l);
-            layout.SetColumnSpan(l, 2);
-        }
-
-        Section("Atalho");
-        Row("Tecla", BuildHotKeyRow());
-
-        Section("IA principal");
-        Row("Provider", _provider);
-        Row("API Key", _apiKey);
-        Row("Modelo", _model);
-        Row("Base URL (opc.)", _baseUrl);
-
-        Section("IA de fallback");
-        Row("Provider", _fbProvider);
-        Row("API Key", _fbApiKey);
-        Row("Modelo", _fbModel);
-
-        Section("IA de visão (opcional)");
-        layout.Controls.Add(_visEnabled);
-        layout.SetColumnSpan(_visEnabled, 2);
-        _visEnabled.Margin = new Padding(0, 4, 0, 4);
-        Row("Provider", _visProvider);
-        Row("API Key", _visApiKey);
-        Row("Modelo", _visModel);
-
-        Section("Upload de imagem");
-        Row("Serviço", _imgService);
-        Row("API Key (opc.)", _imgApiKey);
-
-        var btnSave = new Button { Text = "Salvar", DialogResult = DialogResult.OK, Width = 100 };
-        var btnCancel = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel, Width = 100 };
-        btnSave.Click += (_, _) => Persist();
-
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
-            Height = 44,
-            Padding = new Padding(8),
-        };
-        buttons.Controls.Add(btnCancel);
-        buttons.Controls.Add(btnSave);
-
-        Controls.Add(layout);
-        Controls.Add(buttons);
-        AcceptButton = btnSave;
-        CancelButton = btnCancel;
-
-        LoadValues();
+        _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
     }
 
-    /// <summary>Campo de atalho que captura a combinação pressionada + botão Limpar.</summary>
-    private Control BuildHotKeyRow()
+    private void Save(JsonElement c)
     {
-        _hotKey.ReadOnly = true;
-        _hotKey.Cursor = Cursors.Hand;
-        _hotKey.TabStop = true;
-        _hotKey.Dock = DockStyle.Fill;
-        _hotKey.GotFocus += (_, _) => _hotKey.BackColor = Color.FromArgb(230, 240, 255);
-        _hotKey.LostFocus += (_, _) => _hotKey.BackColor = SystemColors.Window;
-        _hotKey.KeyDown += HotKey_KeyDown;
+        static string S(JsonElement e, string p) => e.TryGetProperty(p, out var v) ? (v.GetString() ?? "") : "";
+        static bool B(JsonElement e, string p) => e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.True;
 
-        var clear = new Button { Text = "Limpar", Width = 70, Dock = DockStyle.Right };
-        clear.Click += (_, _) => { _hotKey.Text = ""; _hotKey.Focus(); };
+        _cfg.HotKey = S(c, "hotKey").Trim();
+        _cfg.CloseOnCopy = B(c, "closeOnCopy");
 
-        var panel = new Panel { Height = 24 };
-        panel.Controls.Add(_hotKey); // Fill primeiro
-        panel.Controls.Add(clear);   // Right por cima
-        clear.BringToFront();
-        return panel;
-    }
-
-    private static void HotKey_KeyDown(object? sender, KeyEventArgs e)
-    {
-        e.SuppressKeyPress = true;
-        var box = (TextBox)sender!;
-
-        // Ignora quando só um modificador é pressionado (aguarda a tecla principal).
-        if (e.KeyCode is Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LWin or Keys.RWin)
-            return;
-
-        var parts = new List<string>();
-        if (e.Control) parts.Add("Ctrl");
-        if (e.Alt) parts.Add("Alt");
-        if (e.Shift) parts.Add("Shift");
-        parts.Add(e.KeyCode.ToString()); // ex.: PrintScreen, F10, A
-        box.Text = string.Join("+", parts);
-    }
-
-    private void LoadValues()
-    {
-        _hotKey.Text = _cfg.HotKey;
-        _provider.SelectedItem = _cfg.Ai.Provider;
-        _apiKey.Text = _cfg.Ai.ApiKey;
-        _model.Text = _cfg.Ai.Model;
-        _baseUrl.Text = _cfg.Ai.BaseUrl;
+        var ai = c.GetProperty("ai");
+        _cfg.Ai.Provider = S(ai, "provider");
+        _cfg.Ai.ApiKey = S(ai, "apiKey").Trim();
+        _cfg.Ai.Model = S(ai, "model").Trim();
+        _cfg.Ai.BaseUrl = S(ai, "baseUrl").Trim();
 
         _cfg.Ai.Fallback ??= new AiEndpoint();
-        _fbProvider.SelectedItem = _cfg.Ai.Fallback.Provider;
-        _fbApiKey.Text = _cfg.Ai.Fallback.ApiKey;
-        _fbModel.Text = _cfg.Ai.Fallback.Model;
+        var fb = ai.GetProperty("fallback");
+        _cfg.Ai.Fallback.Provider = S(fb, "provider");
+        _cfg.Ai.Fallback.ApiKey = S(fb, "apiKey").Trim();
+        _cfg.Ai.Fallback.Model = S(fb, "model").Trim();
+        _cfg.Ai.Fallback.BaseUrl = S(fb, "baseUrl").Trim();
 
-        _visEnabled.Checked = _cfg.Ai.Vision.Enabled;
-        _visProvider.SelectedItem = _cfg.Ai.Vision.Provider;
-        _visApiKey.Text = _cfg.Ai.Vision.ApiKey;
-        _visModel.Text = _cfg.Ai.Vision.Model;
+        var vis = ai.GetProperty("vision");
+        _cfg.Ai.Vision.Enabled = B(vis, "enabled");
+        _cfg.Ai.Vision.Provider = S(vis, "provider");
+        _cfg.Ai.Vision.ApiKey = S(vis, "apiKey").Trim();
+        _cfg.Ai.Vision.Model = S(vis, "model").Trim();
+        _cfg.Ai.Vision.BaseUrl = S(vis, "baseUrl").Trim();
 
-        _imgService.SelectedItem = _cfg.ImageUpload.Service;
-        _imgApiKey.Text = _cfg.ImageUpload.ApiKey;
-    }
-
-    private void Persist()
-    {
-        _cfg.HotKey = _hotKey.Text.Trim();
-        _cfg.Ai.Provider = (string)(_provider.SelectedItem ?? "anthropic");
-        _cfg.Ai.ApiKey = _apiKey.Text.Trim();
-        _cfg.Ai.Model = _model.Text.Trim();
-        _cfg.Ai.BaseUrl = _baseUrl.Text.Trim();
-
-        _cfg.Ai.Fallback ??= new AiEndpoint();
-        _cfg.Ai.Fallback.Provider = (string)(_fbProvider.SelectedItem ?? "openai");
-        _cfg.Ai.Fallback.ApiKey = _fbApiKey.Text.Trim();
-        _cfg.Ai.Fallback.Model = _fbModel.Text.Trim();
-
-        _cfg.Ai.Vision.Enabled = _visEnabled.Checked;
-        _cfg.Ai.Vision.Provider = (string)(_visProvider.SelectedItem ?? "anthropic");
-        _cfg.Ai.Vision.ApiKey = _visApiKey.Text.Trim();
-        _cfg.Ai.Vision.Model = _visModel.Text.Trim();
-
-        _cfg.ImageUpload.Service = (string)(_imgService.SelectedItem ?? "freeimage");
-        _cfg.ImageUpload.ApiKey = _imgApiKey.Text.Trim();
+        var up = c.GetProperty("imageUpload");
+        _cfg.ImageUpload.Service = S(up, "service");
+        _cfg.ImageUpload.ApiKey = S(up, "apiKey").Trim();
 
         _cfg.Save();
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    private void OnHotKeyCaptured(Keys vk)
+    {
+        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (InvokeRequired) { BeginInvoke(new Action<Keys>(OnHotKeyCaptured), vk); return; }
+        var msg = JsonSerializer.Serialize(new { type = "hotkeyCaptured", combo = ComboString(Control.ModifierKeys, vk) });
+        _web.CoreWebView2.PostWebMessageAsJson(msg);
+    }
+
+    private static string ComboString(Keys mods, Keys key)
+    {
+        var parts = new List<string>();
+        if (mods.HasFlag(Keys.Control)) parts.Add("Ctrl");
+        if (mods.HasFlag(Keys.Alt)) parts.Add("Alt");
+        if (mods.HasFlag(Keys.Shift)) parts.Add("Shift");
+        parts.Add(key.ToString());
+        return string.Join("+", parts);
+    }
+
+    private static void OpenUrl(string? url)
+    {
+        if (url is null || !Uri.TryCreate(url, UriKind.Absolute, out var u)) return;
+        if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = u.AbsoluteUri, UseShellExecute = true }); }
+        catch { }
+    }
+
+    // ---------- Recursos ----------
+    private static string ExtractWebUI()
+    {
+        // Chave por ModuleVersionId: muda a cada build -> invalida o cache
+        // quando o bundle web muda; reutiliza entre aberturas do mesmo build.
+        var key = typeof(SettingsForm).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+        var dir = Path.Combine(Path.GetTempPath(), "AiShot.webui", key);
+        if (File.Exists(Path.Combine(dir, "index.html"))) return dir; // cache
+
+        var asm = Assembly.GetExecutingAssembly();
+        foreach (var res in asm.GetManifestResourceNames().Where(n => n.StartsWith("webui/", StringComparison.Ordinal)))
+        {
+            var rel = res["webui/".Length..].Replace('/', Path.DirectorySeparatorChar);
+            var target = Path.Combine(dir, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            using var s = asm.GetManifestResourceStream(res)!;
+            using var f = File.Create(target);
+            s.CopyTo(f);
+        }
+        return dir;
+    }
+
+    private static Icon? LoadFormIcon()
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var name = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("app.ico", StringComparison.OrdinalIgnoreCase));
+        if (name is null) return null;
+        using var s = asm.GetManifestResourceStream(name);
+        return s is null ? null : new Icon(s);
+    }
+
+    /// <summary>Overlay dark com spinner enquanto o WebView2 carrega.</summary>
+    private sealed class LoadingOverlay : Panel
+    {
+        private readonly System.Windows.Forms.Timer _timer = new() { Interval = 16 };
+        private float _angle;
+
+        public LoadingOverlay()
+        {
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
+            BackColor = DarkBg;
+            _timer.Tick += (_, _) => { _angle = (_angle + 9f) % 360f; Invalidate(); };
+        }
+
+        public void Start() { Visible = true; _timer.Start(); }
+        public void Stop() { _timer.Stop(); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            int cx = Width / 2, cy = Height / 2 - 10, r = 16;
+            // trilha
+            using (var track = new Pen(Color.FromArgb(45, 45, 50), 3f))
+                g.DrawEllipse(track, cx - r, cy - r, r * 2, r * 2);
+            // arco (acento)
+            using (var arc = new Pen(Color.FromArgb(47, 107, 255), 3f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round })
+                g.DrawArc(arc, cx - r, cy - r, r * 2, r * 2, _angle, 90f);
+            using (var f = new Font("Segoe UI", 8.5f))
+            using (var b = new SolidBrush(Color.FromArgb(140, 140, 150)))
+            {
+                var sf = new StringFormat { Alignment = StringAlignment.Center };
+                g.DrawString("Carregando…", f, b, cx, cy + r + 12, sf);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _timer.Dispose();
+            base.Dispose(disposing);
+        }
     }
 }

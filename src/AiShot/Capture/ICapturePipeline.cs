@@ -19,4 +19,7 @@ public interface ICaptureServices
 
     /// <summary>Inicia uma conversa contínua (com histórico) sobre a imagem.</summary>
     AiShot.Ai.IAiChatSession StartChat(Bitmap finalImage);
+
+    /// <summary>Se true, o overlay fecha automaticamente após copiar.</summary>
+    bool CloseOnCopy { get; }
 }
