@@ -1,6 +1,7 @@
 ; Script Inno Setup do AiShot — instalador por usuário (sem admin).
 ; Compilar: "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer\AiShot.iss
-; Requer o pacote publicado em dist\AiShot.exe (self-contained comprimido).
+; Requer a pasta publicada em dist\app (self-contained NAO single-file — menos
+; falso-positivo de antivirus que exe empacotado/auto-extraivel).
 
 #define AppName "AiShot"
 #define AppVersion "0.1.0"
@@ -34,7 +35,7 @@ Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDesc
 Name: "startup"; Description: "Iniciar o AiShot com o Windows"; GroupDescription: "Inicialização:"
 
 [Files]
-Source: "..\dist\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
