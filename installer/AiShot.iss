@@ -4,7 +4,7 @@
 ; falso-positivo de antivirus que exe empacotado/auto-extraivel).
 
 #define AppName "AiShot"
-#define AppVersion "0.1.0"
+#define AppVersion "0.1.1"
 #define AppPublisher "Thiago Vasconcelos"
 #define AppExe "AiShot.exe"
 
