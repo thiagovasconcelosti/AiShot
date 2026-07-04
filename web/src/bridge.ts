@@ -3,6 +3,7 @@
 export type Endpoint = { provider: string; apiKey: string; model: string; baseUrl: string }
 export type Vision = Endpoint & { enabled: boolean }
 export type Config = {
+  appVersion?: string
   hotKey: string
   closeOnCopy: boolean
   ai: {
@@ -75,6 +76,7 @@ export const bridge = {
 
 function mockConfig(): Config {
   return {
+    appVersion: "0.0.0-dev",
     hotKey: "PrintScreen",
     closeOnCopy: false,
     ai: {

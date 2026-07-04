@@ -27,7 +27,7 @@ public sealed class TrayAppContext : ApplicationContext
         _tray = new NotifyIcon
         {
             Icon = LoadAppIcon(),
-            Text = "AiShot",
+            Text = $"AiShot v{UpdateService.Current}",
             Visible = true,
             ContextMenuStrip = BuildMenu(),
         };

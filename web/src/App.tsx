@@ -140,6 +140,12 @@ export default function App() {
           <button onClick={() => bridge.openUrl("https://github.com/thiagovasconcelosti/AiShot")} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Repositório</button>
           <span className="text-muted-foreground">·</span>
           <button onClick={() => bridge.openUrl("https://thiagovasconcelosti.github.io/AiShot/")} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Documentação</button>
+          {cfg.appVersion && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">v{cfg.appVersion}</span>
+            </>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => bridge.cancel()}>Cancelar</Button>

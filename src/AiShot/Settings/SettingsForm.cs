@@ -156,6 +156,7 @@ public sealed class SettingsForm : Form
             type = "config",
             config = new
             {
+                appVersion = AiShot.App.UpdateService.Current.ToString(),
                 hotKey = _cfg.HotKey,
                 closeOnCopy = _cfg.CloseOnCopy,
                 ai = new
