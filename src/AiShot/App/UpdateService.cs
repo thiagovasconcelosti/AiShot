@@ -53,7 +53,7 @@ public static class UpdateService
                     name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 {
                     var url = a.GetProperty("browser_download_url").GetString();
-                    if (url is not null) return new UpdateInfo(tag, url);
+                    if (IsTrustedUrl(url)) return new UpdateInfo(tag, url!);
                 }
             }
             return null;
@@ -61,9 +61,24 @@ public static class UpdateService
         catch { return null; }
     }
 
+    /// <summary>
+    /// Só confia em URLs HTTPS do GitHub (host do release/assets). Evita rodar
+    /// binário de origem inesperada mesmo que a resposta da API fosse adulterada.
+    /// </summary>
+    private static bool IsTrustedUrl(string? url)
+    {
+        if (url is null || !Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        if (u.Scheme != Uri.UriSchemeHttps) return false;
+        var host = u.Host.ToLowerInvariant();
+        return host == "github.com"
+            || host.EndsWith(".github.com", StringComparison.Ordinal)
+            || host.EndsWith(".githubusercontent.com", StringComparison.Ordinal);
+    }
+
     /// <summary>Baixa o instalador e o executa (o Inno atualiza sobre a instalação atual).</summary>
     public static async Task DownloadAndRunAsync(HttpClient http, string url, CancellationToken ct = default)
     {
+        if (!IsTrustedUrl(url)) throw new InvalidOperationException("URL de atualização não confiável.");
         var tmp = Path.Combine(Path.GetTempPath(), "AiShot-Update-Setup.exe");
         using (var s = await http.GetStreamAsync(url, ct).ConfigureAwait(false))
         using (var f = File.Create(tmp))
