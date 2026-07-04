@@ -11,7 +11,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>AiShot</AssemblyName>
     <RootNamespace>AiShot</RootNamespace>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

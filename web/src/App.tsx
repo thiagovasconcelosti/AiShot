@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Eye, EyeOff, X, Keyboard } from "lucide-react"
+import { Eye, EyeOff, X, Keyboard, Download, Loader2 } from "lucide-react"
 import { bridge, type Config, type Endpoint, type Vision } from "@/bridge"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -17,11 +17,14 @@ const SERVICES = ["freeimage", "imgbb"]
 export default function App() {
   const [cfg, setCfg] = useState<Config | null>(null)
   const [capturing, setCapturing] = useState(false)
+  const [update, setUpdate] = useState<{ version: string; url: string } | null>(null)
+  const [updating, setUpdating] = useState(false)
 
   const stopCapture = () => { setCapturing(false); bridge.hotkeyStop() }
 
   useEffect(() => {
     bridge.onConfig(setCfg)
+    bridge.onUpdate((version, url) => setUpdate({ version, url }))
     bridge.onHotkey((combo) => {
       setCfg((c) => (c ? { ...c, hotKey: combo } : c))
       setCapturing(false)
@@ -70,6 +73,19 @@ export default function App() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        {update && (
+          <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3">
+            <Download size={18} className="text-primary shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Nova versão disponível!</p>
+              <p className="text-xs text-muted-foreground">Versão {update.version} — clique para atualizar automaticamente.</p>
+            </div>
+            <Button size="sm" disabled={updating} onClick={() => { setUpdating(true); bridge.startUpdate(update.url) }}>
+              {updating ? <><Loader2 size={15} className="animate-spin" /> Baixando…</> : "Atualizar"}
+            </Button>
+          </div>
+        )}
+
         <Section title="Atalho" subtitle="Tecla global para capturar">
           <Field label="Tecla">
             <HotkeyInput

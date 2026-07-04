@@ -24,13 +24,15 @@ public sealed class SettingsForm : Form
 
     private readonly AppConfig _cfg;
     private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
+    private readonly HttpClient _http;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
     private readonly LoadingOverlay _loading = new() { Dock = DockStyle.Fill };
 
-    public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null)
+    public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null, HttpClient? http = null)
     {
         _cfg = cfg;
         _hotKeyService = hotKeyService;
+        _http = http ?? new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
 
         Text = "AiShot — Configurações";
         StartPosition = FormStartPosition.CenterScreen;
@@ -132,7 +134,8 @@ public sealed class SettingsForm : Form
             var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
             switch (type)
             {
-                case "ready": SendConfig(); break;
+                case "ready": SendConfig(); _ = CheckUpdateAsync(); break;
+                case "startUpdate": _ = DoUpdateAsync(root.TryGetProperty("url", out var uu) ? uu.GetString() : null); break;
                 case "save": Save(root.GetProperty("config")); break;
                 case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
                 case "hotkeyStart": if (_hotKeyService is not null) _hotKeyService.CaptureMode = true; break;
@@ -168,6 +171,31 @@ public sealed class SettingsForm : Form
             },
         };
         _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
+    }
+
+    private async Task CheckUpdateAsync()
+    {
+        var info = await AiShot.App.UpdateService.CheckAsync(_http).ConfigureAwait(false);
+        if (info is null || IsDisposed) return;
+        var msg = JsonSerializer.Serialize(new { type = "updateAvailable", version = info.Version, url = info.Url });
+        void Post() { if (!IsDisposed && _web.CoreWebView2 is not null) _web.CoreWebView2.PostWebMessageAsJson(msg); }
+        if (InvokeRequired) BeginInvoke(Post); else Post();
+    }
+
+    private async Task DoUpdateAsync(string? url)
+    {
+        if (url is null) return;
+        try
+        {
+            await AiShot.App.UpdateService.DownloadAndRunAsync(_http, url).ConfigureAwait(true);
+            Application.Exit(); // fecha o app para o instalador atualizar
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed)
+                MessageBox.Show("Falha ao atualizar: " + ex.Message, "AiShot",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void Save(JsonElement c)

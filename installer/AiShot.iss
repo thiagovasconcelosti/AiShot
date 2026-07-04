@@ -4,7 +4,7 @@
 ; falso-positivo de antivirus que exe empacotado/auto-extraivel).
 
 #define AppName "AiShot"
-#define AppVersion "0.1.1"
+#define AppVersion "0.1.2"
 #define AppPublisher "Thiago Vasconcelos"
 #define AppExe "AiShot.exe"
 
@@ -26,6 +26,9 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+; Auto-update: fecha o app em execução para sobrescrever os arquivos.
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

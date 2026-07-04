@@ -127,7 +127,7 @@ public sealed class TrayAppContext : ApplicationContext
 
     private void OpenSettings()
     {
-        using var form = new SettingsForm(_cfg, _hotKey);
+        using var form = new SettingsForm(_cfg, _hotKey, _http);
         if (form.ShowDialog() == DialogResult.OK)
         {
             // Recarrega config + recria host e re-registra atalho.

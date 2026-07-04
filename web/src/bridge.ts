@@ -19,6 +19,7 @@ export type Config = {
 type Msg =
   | { type: "config"; config: Config }
   | { type: "hotkeyCaptured"; combo: string }
+  | { type: "updateAvailable"; version: string; url: string }
 
 interface WebView2 {
   postMessage: (msg: unknown) => void
@@ -53,6 +54,16 @@ export const bridge = {
       if (m && m.type === "hotkeyCaptured") cb(m.combo)
     })
   },
+
+  onUpdate(cb: (version: string, url: string) => void) {
+    if (!wv) return
+    wv.addEventListener("message", (e) => {
+      const m = e.data as Msg
+      if (m && m.type === "updateAvailable") cb(m.version, m.url)
+    })
+  },
+
+  startUpdate: (url: string) => post({ type: "startUpdate", url }),
 
   hotkeyStart: () => post({ type: "hotkeyStart" }),
   hotkeyStop: () => post({ type: "hotkeyStop" }),
