@@ -13,6 +13,7 @@ public static class Theme
     public static readonly Color SurfaceHover = Color.FromArgb(255, 39, 39, 42); // zinc-800
     public static readonly Color Border = Color.FromArgb(255, 63, 63, 70);      // zinc-700
     public static readonly Color BorderSubtle = Color.FromArgb(255, 39, 39, 42);
+    public static readonly Color InputBackground = Color.FromArgb(24, 24, 27);  // zinc-950 (campo de texto)
 
     // Texto
     public static readonly Color Text = Color.FromArgb(255, 250, 250, 250);

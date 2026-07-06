@@ -82,7 +82,7 @@ internal sealed class ChatPanel
         _input = new TextBox
         {
             BorderStyle = BorderStyle.None,
-            BackColor = Color.FromArgb(24, 24, 27),
+            BackColor = Theme.InputBackground,
             ForeColor = Theme.Text,
             Font = new Font("Segoe UI", 10.5f),
             Multiline = false,
@@ -218,7 +218,7 @@ internal sealed class ChatPanel
         _sendBtn = new Rectangle(inputRow.Right - 32, inputRow.Top + 2, 30, 30);
 
         using (var ip = Theme.RoundRect(new Rectangle(inputRow.Left, inputRow.Top, inputRow.Width - 38, inputH), 9))
-        using (var ifill = new SolidBrush(Color.FromArgb(24, 24, 27)))
+        using (var ifill = new SolidBrush(Theme.InputBackground))
         using (var ipen = new Pen(Theme.Border, 1))
         { g.FillPath(ifill, ip); g.DrawPath(ipen, ip); }
 
