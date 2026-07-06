@@ -39,8 +39,8 @@ public sealed class AiService : IAiService
         var provider = AiProviderFactory.Create(v.Provider, v.ApiKey, v.Model, v.BaseUrl, _http);
         var req = new AiRequest(
             "Descreva objetivamente o conteúdo desta imagem em detalhes (texto, elementos visuais, cores, layout).",
-            ImagePng: imagePng,
-            MaxTokens: 1024);
+            imagePng: imagePng,
+            maxTokens: 1024);
         var resp = await provider.CompleteAsync(req, ct).ConfigureAwait(false);
         return resp.Text;
     }
@@ -118,7 +118,7 @@ public sealed class AiService : IAiService
             if (_visionDescription is null && _history.Count > 1) imageForMain = null;
 
             var prompt = BuildPrompt(userMessage);
-            var req = new AiRequest(prompt, imageForMain, systemPrompt, MaxTokens: 1500);
+            var req = new AiRequest(prompt, imageForMain, systemPrompt, maxTokens: 1500);
             var resp = await _owner.CompleteWithFallbackAsync(req, ct).ConfigureAwait(false);
 
             _history.Add(new ChatTurn("assistant", resp.Text));

@@ -1,11 +1,22 @@
 namespace AiShot.Ai;
 
-/// <summary>Requisição de chat multimodal (texto + imagem opcional).</summary>
+/// <summary>Uma mensagem da conversa ("user" | "assistant") com imagem opcional.</summary>
+public sealed record ChatMessage(string Role, string Text, byte[]? ImagePng = null);
+
+/// <summary>
+/// Requisição de chat multimodal: lista de mensagens nativa (role+conteúdo) que
+/// os providers traduzem para o messages[] real da API. O histórico NÃO é achatado
+/// em string — cada turno vira uma entrada com seu papel.
+/// </summary>
 public sealed record AiRequest(
-    string Prompt,
-    byte[]? ImagePng = null,
+    IReadOnlyList<ChatMessage> Messages,
     string? SystemPrompt = null,
-    int MaxTokens = 1024);
+    int MaxTokens = 1024)
+{
+    /// <summary>Conveniência: requisição de turno único (texto + imagem opcional).</summary>
+    public AiRequest(string prompt, byte[]? imagePng = null, string? systemPrompt = null, int maxTokens = 1024)
+        : this(new[] { new ChatMessage("user", prompt, imagePng) }, systemPrompt, maxTokens) { }
+}
 
 /// <summary>Resposta da IA.</summary>
 public sealed record AiResponse(string Text, string ProviderUsed, string Model);

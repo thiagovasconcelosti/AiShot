@@ -30,24 +30,26 @@ public sealed class AnthropicProvider : IAiProvider
 
     public async Task<AiResponse> CompleteAsync(AiRequest request, CancellationToken ct = default)
     {
-        // Monta o array de "content" da mensagem do usuário: texto e, opcionalmente, imagem.
-        var content = new List<object>
+        // Traduz cada turno do histórico para uma entrada de messages[] com seu role.
+        // A imagem (quando presente num turno) vira um bloco "image" no content daquele turno.
+        var messages = new List<object>(request.Messages.Count);
+        foreach (var m in request.Messages)
         {
-            new { type = "text", text = request.Prompt },
-        };
-
-        if (request.ImagePng is not null)
-        {
-            content.Add(new
+            var content = new List<object> { new { type = "text", text = m.Text } };
+            if (m.ImagePng is not null)
             {
-                type = "image",
-                source = new
+                content.Add(new
                 {
-                    type = "base64",
-                    media_type = "image/png",
-                    data = Convert.ToBase64String(request.ImagePng),
-                },
-            });
+                    type = "image",
+                    source = new
+                    {
+                        type = "base64",
+                        media_type = "image/png",
+                        data = Convert.ToBase64String(m.ImagePng),
+                    },
+                });
+            }
+            messages.Add(new { role = m.Role, content = content.ToArray() });
         }
 
         // Corpo da requisição. O "system" só é incluído quando há SystemPrompt.
@@ -55,10 +57,7 @@ public sealed class AnthropicProvider : IAiProvider
         {
             ["model"] = _model,
             ["max_tokens"] = request.MaxTokens,
-            ["messages"] = new[]
-            {
-                new { role = "user", content = content.ToArray() },
-            },
+            ["messages"] = messages.ToArray(),
         };
 
         if (!string.IsNullOrWhiteSpace(request.SystemPrompt))

@@ -30,27 +30,27 @@ public sealed class OpenAiProvider : IAiProvider
 
     public async Task<AiResponse> CompleteAsync(AiRequest request, CancellationToken ct = default)
     {
-        // Conteúdo da mensagem do usuário: texto e, opcionalmente, imagem (data URL).
-        var userContent = new List<object>
-        {
-            new { type = "text", text = request.Prompt },
-        };
-
-        if (request.ImagePng is not null)
-        {
-            var b64 = Convert.ToBase64String(request.ImagePng);
-            userContent.Add(new
-            {
-                type = "image_url",
-                image_url = new { url = $"data:image/png;base64,{b64}" },
-            });
-        }
-
         // O system prompt vira uma mensagem com role "system" no início.
         var messages = new List<object>();
         if (!string.IsNullOrWhiteSpace(request.SystemPrompt))
             messages.Add(new { role = "system", content = request.SystemPrompt });
-        messages.Add(new { role = "user", content = userContent.ToArray() });
+
+        // Cada turno do histórico vira uma mensagem com seu role; imagem (quando
+        // presente no turno) entra como bloco image_url (data URL).
+        foreach (var m in request.Messages)
+        {
+            var content = new List<object> { new { type = "text", text = m.Text } };
+            if (m.ImagePng is not null)
+            {
+                var b64 = Convert.ToBase64String(m.ImagePng);
+                content.Add(new
+                {
+                    type = "image_url",
+                    image_url = new { url = $"data:image/png;base64,{b64}" },
+                });
+            }
+            messages.Add(new { role = m.Role, content = content.ToArray() });
+        }
 
         var body = new
         {
