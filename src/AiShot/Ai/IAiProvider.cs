@@ -33,16 +33,15 @@ public interface IAiProvider
     Task<AiResponse> CompleteAsync(AiRequest request, CancellationToken ct = default);
 }
 
-/// <summary>Um turno da conversa ("user" ou "assistant").</summary>
-public sealed record ChatTurn(string Role, string Text);
-
 /// <summary>
-/// Conversa contínua sobre uma imagem. Mantém histórico; a IA de visão (se ativa)
-/// descreve a imagem uma única vez e a descrição é reaproveitada em todos os turnos.
+/// Conversa contínua sobre uma imagem. Mantém o histórico como lista de mensagens
+/// nativas (a fonte única da verdade do diálogo). A imagem viaja no primeiro turno e
+/// o contexto é preservado nos turnos seguintes; a IA de visão (se ativa) descreve a
+/// imagem uma única vez e a descrição é reaproveitada via system prompt.
 /// </summary>
 public interface IAiChatSession
 {
-    IReadOnlyList<ChatTurn> History { get; }
+    IReadOnlyList<ChatMessage> History { get; }
     Task<string> SendAsync(string userMessage, CancellationToken ct = default);
 }
 

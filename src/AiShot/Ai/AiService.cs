@@ -1,5 +1,4 @@
 using System.Net.Http;
-using System.Text;
 using AiShot.Config;
 
 namespace AiShot.Ai;
@@ -90,7 +89,7 @@ public sealed class AiService : IAiService
     {
         private readonly AiService _owner;
         private readonly byte[] _image;
-        private readonly List<ChatTurn> _history = new();
+        private readonly List<ChatMessage> _history = new();
         private string? _visionDescription;
         private bool _visionDone;
 
@@ -100,49 +99,38 @@ public sealed class AiService : IAiService
             _image = image;
         }
 
-        public IReadOnlyList<ChatTurn> History => _history;
+        public IReadOnlyList<ChatMessage> History => _history;
 
         public async Task<string> SendAsync(string userMessage, CancellationToken ct = default)
         {
-            // Visão roda uma única vez na primeira mensagem.
+            // Sem visão: a imagem viaja no 1º turno de user; como enviamos o histórico
+            // inteiro a cada chamada, a API preserva o contexto visual nos turnos
+            // seguintes (sem reenviar a imagem). O turno é adicionado antes da visão
+            // para o chat já poder exibi-lo enquanto a resposta não chega.
+            byte[]? turnImage = _history.Count == 0 ? _image : null;
+            _history.Add(new ChatMessage("user", userMessage, turnImage));
+
+            // Visão roda uma única vez, na primeira mensagem.
             if (!_visionDone)
             {
                 _visionDescription = await _owner.DescribeAsync(_image, ct).ConfigureAwait(false);
                 _visionDone = true;
             }
 
-            _history.Add(new ChatTurn("user", userMessage));
+            string? systemPrompt = null;
+            IReadOnlyList<ChatMessage> messages = _history;
+            if (_visionDescription is not null)
+            {
+                systemPrompt = $"Contexto visual da imagem (fornecido por IA de visão): {_visionDescription}";
+                // Com visão ativa, não reenvia a imagem: o contexto já está no system.
+                messages = _history.Select(m => m.ImagePng is null ? m : m with { ImagePng = null }).ToArray();
+            }
 
-            var (systemPrompt, imageForMain) = BuildContext(_visionDescription, _image);
-            // Sem visão, reenvia a imagem só no primeiro turno (provider aceita 1 imagem).
-            if (_visionDescription is null && _history.Count > 1) imageForMain = null;
-
-            var prompt = BuildPrompt(userMessage);
-            var req = new AiRequest(prompt, imageForMain, systemPrompt, maxTokens: 1500);
+            var req = new AiRequest(messages, systemPrompt, MaxTokens: 1500);
             var resp = await _owner.CompleteWithFallbackAsync(req, ct).ConfigureAwait(false);
 
-            _history.Add(new ChatTurn("assistant", resp.Text));
+            _history.Add(new ChatMessage("assistant", resp.Text));
             return resp.Text;
-        }
-
-        /// <summary>
-        /// Monta o prompt com o histórico anterior (continuidade) + a nova mensagem.
-        /// </summary>
-        private string BuildPrompt(string newMessage)
-        {
-            if (_history.Count <= 1) return newMessage; // primeiro turno: só a pergunta
-
-            var sb = new StringBuilder();
-            sb.AppendLine("Continue a conversa sobre a mesma imagem. Histórico:");
-            // todos menos a última (que é a newMessage recém-adicionada)
-            for (int i = 0; i < _history.Count - 1; i++)
-            {
-                var t = _history[i];
-                sb.AppendLine($"{(t.Role == "user" ? "Usuário" : "Assistente")}: {t.Text}");
-            }
-            sb.AppendLine($"Usuário: {newMessage}");
-            sb.Append("Assistente:");
-            return sb.ToString();
         }
     }
 }
