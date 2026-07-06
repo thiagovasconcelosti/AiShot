@@ -21,7 +21,9 @@ internal sealed class ChatPanel
     private readonly CancellationToken _ct;
 
     private IAiChatSession? _session;
-    private readonly List<(string role, string text)> _messages = new();
+    // Fonte única do diálogo é _session.History; aqui só guardamos um erro transitório
+    // (a falha de um turno não entra no histórico da sessão, mas precisa aparecer no chat).
+    private string? _pendingError;
     private bool _busy;
     private bool _scrollToBottom;
     private int _scroll, _contentHeight;
@@ -99,23 +101,24 @@ internal sealed class ChatPanel
         var q = _input.Text.Trim();
         if (q.Length == 0) return;
 
-        _messages.Add(("user", q));
+        // A sessão registra o turno de user no próprio histórico; não duplicamos aqui.
         _input.Clear();
+        _pendingError = null;
         _busy = true;
         _input.Enabled = false;
         _scrollToBottom = true;
         _host.Invalidate();
         try
         {
-            var ans = await _session.SendAsync(q, _ct).ConfigureAwait(true);
+            await _session.SendAsync(q, _ct).ConfigureAwait(true);
             if (_host.IsDisposed) return;
-            _messages.Add(("assistant", ans));
         }
         catch (OperationCanceledException) { return; } // overlay fechado
         catch (Exception ex)
         {
             if (_host.IsDisposed) return;
-            _messages.Add(("assistant", "Erro: " + ex.Message));
+            // Qualquer falha vira mensagem visível no chat (nunca engolida em silêncio).
+            _pendingError = "Erro: " + ex.Message;
         }
         finally
         {
@@ -155,9 +158,9 @@ internal sealed class ChatPanel
         int y = _viewport.Top - _scroll;
         const int gap = 8, padX = 11, padY = 8;
 
-        foreach (var (role, text) in _messages)
+        // Desenha um balão (usuário à direita/claro, assistente à esquerda/escuro) e avança y.
+        void DrawBubble(bool user, string text)
         {
-            bool user = role == "user";
             var sz = g.MeasureString(text, MsgFont, maxBubbleW - padX * 2);
             int bw = (int)Math.Ceiling(sz.Width) + padX * 2;
             int bh = (int)Math.Ceiling(sz.Height) + padY * 2;
@@ -173,6 +176,16 @@ internal sealed class ChatPanel
             y += bh + gap;
         }
 
+        // Fonte única: histórico da sessão.
+        var history = _session?.History;
+        if (history is not null)
+            foreach (var m in history)
+                DrawBubble(m.Role == "user", m.Text);
+
+        // Erro transitório do último turno (não faz parte do histórico da sessão).
+        if (_pendingError is not null)
+            DrawBubble(false, _pendingError);
+
         if (_busy)
         {
             var bub = new Rectangle(_viewport.Left, y, 70, 30);
@@ -186,7 +199,7 @@ internal sealed class ChatPanel
 
         _contentHeight = (y + _scroll) - _viewport.Top;
 
-        if (_messages.Count == 0 && !_busy)
+        if ((history is null || history.Count == 0) && _pendingError is null && !_busy)
         {
             using var ph = new SolidBrush(Theme.TextMuted);
             g.DrawString("Pergunte algo sobre o print…", MsgFont, ph, _viewport.Left, _viewport.Top + 4);
