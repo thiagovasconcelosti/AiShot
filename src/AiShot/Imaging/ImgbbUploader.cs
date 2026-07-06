@@ -27,8 +27,9 @@ public sealed class ImgbbUploader : IImageUploader
         };
 
         var url = $"https://api.imgbb.com/1/upload?key={Uri.EscapeDataString(_apiKey)}";
-        using var response = await _http.PostAsync(url, form, ct);
-        var body = await response.Content.ReadAsStringAsync(ct);
+        using var cts = HttpUtil.Timeout(ct, TimeSpan.FromSeconds(60));
+        using var response = await _http.PostAsync(url, form, cts.Token);
+        var body = await response.Content.ReadAsStringAsync(cts.Token);
 
         // Falha: propaga o corpo da resposta no erro.
         if (!response.IsSuccessStatusCode)

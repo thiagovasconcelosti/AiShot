@@ -67,8 +67,9 @@ public sealed class OpenAiProvider : IAiProvider
         };
         httpReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
 
-        using var resp = await _http.SendAsync(httpReq, ct).ConfigureAwait(false);
-        var respBody = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var cts = HttpUtil.Timeout(ct, TimeSpan.FromMinutes(2));
+        using var resp = await _http.SendAsync(httpReq, cts.Token).ConfigureAwait(false);
+        var respBody = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
 
         // Erro != 2xx: lança com o corpo da resposta para diagnóstico.
         if (!resp.IsSuccessStatusCode)

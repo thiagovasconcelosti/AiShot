@@ -34,8 +34,9 @@ public sealed class FreeImageUploader : IImageUploader
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(fileContent, "source", "image.png");
 
-        using var response = await _http.PostAsync("https://freeimage.host/api/1/upload", form, ct);
-        var body = await response.Content.ReadAsStringAsync(ct);
+        using var cts = HttpUtil.Timeout(ct, TimeSpan.FromSeconds(60));
+        using var response = await _http.PostAsync("https://freeimage.host/api/1/upload", form, cts.Token);
+        var body = await response.Content.ReadAsStringAsync(cts.Token);
 
         // Falha: propaga o corpo da resposta no erro.
         if (!response.IsSuccessStatusCode)

@@ -32,7 +32,7 @@ public sealed class SettingsForm : Form
     {
         _cfg = cfg;
         _hotKeyService = hotKeyService;
-        _http = http ?? new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
+        _http = http ?? new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
 
         Text = "AiShot — Configurações";
         StartPosition = FormStartPosition.CenterScreen;

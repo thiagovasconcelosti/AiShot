@@ -33,10 +33,11 @@ public static class UpdateService
             using var req = new HttpRequestMessage(HttpMethod.Get, LatestApi);
             req.Headers.UserAgent.ParseAdd("AiShot-Updater");
             req.Headers.Accept.ParseAdd("application/vnd.github+json");
-            using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
+            using var cts = HttpUtil.Timeout(ct, TimeSpan.FromSeconds(30));
+            using var resp = await http.SendAsync(req, cts.Token).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return null;
 
-            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false));
             var root = doc.RootElement;
 
             var tag = (root.TryGetProperty("tag_name", out var t) ? t.GetString() : null)?.TrimStart('v', 'V');
@@ -86,9 +87,11 @@ public static class UpdateService
     {
         if (!IsTrustedUrl(url)) throw new InvalidOperationException("URL de atualização não confiável.");
         var tmp = Path.Combine(Path.GetTempPath(), "AiShot-Update-Setup.exe");
-        using (var s = await http.GetStreamAsync(url, ct).ConfigureAwait(false))
+        // Download do instalador pode ser grande: timeout generoso, mas ainda limitado.
+        using var cts = HttpUtil.Timeout(ct, TimeSpan.FromMinutes(10));
+        using (var s = await http.GetStreamAsync(url, cts.Token).ConfigureAwait(false))
         using (var f = File.Create(tmp))
-            await s.CopyToAsync(f, ct).ConfigureAwait(false);
+            await s.CopyToAsync(f, cts.Token).ConfigureAwait(false);
 
         Process.Start(new ProcessStartInfo { FileName = tmp, UseShellExecute = true });
     }

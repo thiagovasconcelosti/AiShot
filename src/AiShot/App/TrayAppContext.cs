@@ -15,7 +15,8 @@ public sealed class TrayAppContext : ApplicationContext
 {
     private readonly NotifyIcon _tray;
     private readonly GlobalHotKey _hotKey;
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(3) };
+    // Sem timeout global: cada operação define o seu (via HttpUtil.Timeout).
+    private readonly HttpClient _http = new() { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
     private AppConfig _cfg;
     private AppHost _host;
     private bool _capturing;
