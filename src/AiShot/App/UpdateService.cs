@@ -58,7 +58,13 @@ public static class UpdateService
             }
             return null;
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            // Checagem de update é best-effort (offline, rate limit, etc.): não interrompe
+            // o app, mas registra o motivo em vez de engolir cego.
+            Debug.WriteLine($"UpdateService.CheckAsync falhou: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>

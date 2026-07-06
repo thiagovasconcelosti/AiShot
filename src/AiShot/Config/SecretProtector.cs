@@ -29,10 +29,12 @@ internal static class SecretProtector
             var enc = ProtectedData.Protect(data, Entropy, DataProtectionScope.CurrentUser);
             return Prefix + Convert.ToBase64String(enc);
         }
-        catch
+        catch (Exception ex)
         {
-            // Se a cifragem falhar, não persiste em claro silenciosamente.
-            return plain;
+            // Nunca degrada para texto puro em silêncio: persistir a API key em claro
+            // seria o pior desfecho. Propaga para o chamador tratar/avisar o usuário.
+            throw new InvalidOperationException(
+                "Falha ao cifrar segredo (DPAPI). A chave NÃO foi salva em texto puro.", ex);
         }
     }
 

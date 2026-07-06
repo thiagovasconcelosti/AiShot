@@ -136,7 +136,14 @@ public sealed class SettingsForm : Form
             {
                 case "ready": SendConfig(); _ = CheckUpdateAsync(); break;
                 case "startUpdate": _ = DoUpdateAsync(root.TryGetProperty("url", out var uu) ? uu.GetString() : null); break;
-                case "save": Save(root.GetProperty("config")); break;
+                case "save":
+                    try { Save(root.GetProperty("config")); }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Não foi possível salvar as configurações: " + ex.Message,
+                            "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    break;
                 case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
                 case "hotkeyStart": if (_hotKeyService is not null) _hotKeyService.CaptureMode = true; break;
                 case "hotkeyStop": if (_hotKeyService is not null) _hotKeyService.CaptureMode = false; break;

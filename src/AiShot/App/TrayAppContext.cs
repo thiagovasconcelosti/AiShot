@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows.Forms;
 using AiShot.Capture;
 using AiShot.Config;
@@ -50,10 +51,10 @@ public sealed class TrayAppContext : ApplicationContext
             foreach (var f in Directory.EnumerateFiles(Path.GetTempPath(), "aishot_*.png"))
             {
                 try { if (File.GetLastWriteTime(f) < cutoff) File.Delete(f); }
-                catch { /* arquivo em uso — ignora */ }
+                catch (Exception ex) { Debug.WriteLine($"CleanupTempFiles: não removeu '{f}': {ex.Message}"); }
             }
         }
-        catch { /* sem acesso ao temp — ignora */ }
+        catch (Exception ex) { Debug.WriteLine($"CleanupTempFiles falhou: {ex.Message}"); }
     }
 
     private static Icon LoadAppIcon()
