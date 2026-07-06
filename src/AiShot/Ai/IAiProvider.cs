@@ -52,13 +52,6 @@ public interface IAiChatSession
 /// </summary>
 public interface IAiService
 {
-    /// <summary>
-    /// Pergunta algo sobre a imagem do print.
-    /// </summary>
-    /// <param name="question">Pergunta do usuário.</param>
-    /// <param name="imagePng">PNG da área selecionada.</param>
-    Task<AiResponse> AskAboutImageAsync(string question, byte[] imagePng, CancellationToken ct = default);
-
     /// <summary>Cria uma conversa contínua sobre a imagem informada.</summary>
     IAiChatSession CreateSession(byte[] imagePng);
 }

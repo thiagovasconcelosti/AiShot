@@ -17,14 +17,6 @@ public sealed class AiService : IAiService
         _http = http;
     }
 
-    public async Task<AiResponse> AskAboutImageAsync(string question, byte[] imagePng, CancellationToken ct = default)
-    {
-        var visionDescription = await DescribeAsync(imagePng, ct).ConfigureAwait(false);
-        var (systemPrompt, imageForMain) = BuildContext(visionDescription, imagePng);
-        var req = new AiRequest(question, imageForMain, systemPrompt);
-        return await CompleteWithFallbackAsync(req, ct).ConfigureAwait(false);
-    }
-
     public IAiChatSession CreateSession(byte[] imagePng) => new ChatSession(this, imagePng);
 
     // ---------- Helpers compartilhados ----------
@@ -42,16 +34,6 @@ public sealed class AiService : IAiService
             maxTokens: 1024);
         var resp = await provider.CompleteAsync(req, ct).ConfigureAwait(false);
         return resp.Text;
-    }
-
-    /// <summary>
-    /// Com visão: contexto vai no system, imagem omitida. Sem visão: reenvia a imagem.
-    /// </summary>
-    private static (string? systemPrompt, byte[]? image) BuildContext(string? visionDescription, byte[] imagePng)
-    {
-        if (visionDescription is not null)
-            return ($"Contexto visual da imagem (fornecido por IA de visão): {visionDescription}", null);
-        return (null, imagePng);
     }
 
     private async Task<AiResponse> CompleteWithFallbackAsync(AiRequest req, CancellationToken ct)
