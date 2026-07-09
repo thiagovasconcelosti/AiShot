@@ -25,6 +25,7 @@ internal static class ToolbarLayout
         (Icons.Circle, "ellipse", "Elipse", Tool.Ellipse),
         (Icons.Text, "text", "Texto", Tool.Text),
         (Icons.Palette, "color", "Cor", Tool.None),
+        ("", "thickness", "Espessura", Tool.None),
         (Icons.Undo, "undo", "Desfazer", Tool.None),
     };
 
@@ -39,7 +40,7 @@ internal static class ToolbarLayout
         (Icons.Close, "close", "Fechar"),
     };
 
-    public static ToolbarLayoutResult Compute(Rectangle sel, Rectangle mon, Tool tool, bool paletteOpen)
+    public static ToolbarLayoutResult Compute(Rectangle sel, Rectangle mon, Tool tool, bool paletteOpen, bool thicknessOpen)
     {
         int bs = Theme.ButtonSize, gap = 2, pad = Theme.BarPad;
 
@@ -56,7 +57,12 @@ internal static class ToolbarLayout
         for (int i = 0; i < Tools.Length; i++)
         {
             var r = new Rectangle(sx + pad, sy + pad + i * (bs + gap), bs, bs);
-            bool active = Tools[i].id == "color" ? paletteOpen : (tool == Tools[i].tool && Tools[i].tool != Tool.None);
+            bool active = Tools[i].id switch
+            {
+                "color" => paletteOpen,
+                "thickness" => thicknessOpen,
+                _ => tool == Tools[i].tool && Tools[i].tool != Tool.None,
+            };
             sideButtons.Add(new IconButton(r, Tools[i].glyph, Tools[i].id, active, Tools[i].tip));
         }
 
