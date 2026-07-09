@@ -29,13 +29,16 @@ public sealed class CaptureOverlay : Form
     private readonly List<Shape> _shapes = new();
     private Shape? _drawing;
     private Color _color = Color.FromArgb(239, 68, 68); // vermelho (padrão, igual referência)
-    private int _thickness = 3;
+    private static readonly int[] ThicknessLevels = { 2, 4, 7 }; // fina, média, grossa
+    private int _thickness = ThicknessLevels[1];
 
     // Layout recalculado a cada render
     private readonly List<IconButton> _sideButtons = new();
     private readonly List<IconButton> _bottomButtons = new();
     private readonly List<(Rectangle r, Color c)> _swatches = new();
+    private readonly List<(Rectangle r, int v)> _thicknessSwatches = new();
     private bool _paletteOpen;
+    private bool _thicknessMenuOpen;
     private Rectangle _sidePanelRect;
 
     // Chat (componente extraído) + cancelamento compartilhado (chat/upload)
@@ -119,6 +122,12 @@ public sealed class CaptureOverlay : Form
             foreach (var (r, c) in _swatches)
                 if (r.Contains(e.Location)) { _color = c; _paletteOpen = false; Invalidate(); return; }
             _paletteOpen = false;
+        }
+        if (_thicknessMenuOpen)
+        {
+            foreach (var (r, v) in _thicknessSwatches)
+                if (r.Contains(e.Location)) { _thickness = v; _thicknessMenuOpen = false; Invalidate(); return; }
+            _thicknessMenuOpen = false;
         }
         foreach (var b in _bottomButtons)
             if (b.Rect.Contains(e.Location)) { OnBottomAction(b.Id); return; }
@@ -230,7 +239,8 @@ public sealed class CaptureOverlay : Form
             case "rect": _tool = Toggle(Tool.Rect); break;
             case "ellipse": _tool = Toggle(Tool.Ellipse); break;
             case "text": _tool = Toggle(Tool.Text); break;
-            case "color": _paletteOpen = !_paletteOpen; break;
+            case "color": _paletteOpen = !_paletteOpen; _thicknessMenuOpen = false; break;
+            case "thickness": _thicknessMenuOpen = !_thicknessMenuOpen; _paletteOpen = false; break;
             case "undo": if (_shapes.Count > 0) _shapes.RemoveAt(_shapes.Count - 1); break;
         }
         Cursor = _tool == Tool.None ? Cursors.Default : Cursors.Cross;
@@ -255,8 +265,6 @@ public sealed class CaptureOverlay : Form
 
     private async Task DoUploadAsync(bool share = false)
     {
-        // Aviso de privacidade: o print sai do computador para um host público.
-        if (!ConfirmUploadOnce()) return;
         try
         {
             Flash("Enviando…");
@@ -279,17 +287,6 @@ public sealed class CaptureOverlay : Form
         {
             if (!IsDisposed) Flash((share ? "Falha ao compartilhar: " : "Falha no upload: ") + ex.Message);
         }
-    }
-
-    private bool _uploadConfirmed;
-    private bool ConfirmUploadOnce()
-    {
-        if (_uploadConfirmed) return true;
-        var r = MessageBox.Show(
-            "A imagem será enviada para um serviço de hospedagem público e ficará acessível por link. Continuar?",
-            "AiShot — enviar imagem", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
-        _uploadConfirmed = r == DialogResult.OK;
-        return _uploadConfirmed;
     }
 
     /// <summary>Abre uma URL só se for http/https (evita esquemas perigosos via ShellExecute).</summary>
@@ -473,6 +470,7 @@ public sealed class CaptureOverlay : Form
             DrawSelectionChrome(g);
             LayoutAndDrawToolbars(g);
             if (_paletteOpen) DrawPalette(g);
+            if (_thicknessMenuOpen) DrawThicknessMenu(g);
             if (_chat.IsOpen) _chat.Draw(g, _sel, MonitorBounds(), _sidePanelRect);
         }
         else
@@ -518,7 +516,7 @@ public sealed class CaptureOverlay : Form
     private void LayoutAndDrawToolbars(Graphics g)
     {
         // Cálculo puro das posições; o overlay só desenha.
-        var layout = ToolbarLayout.Compute(_sel, MonitorBounds(), _tool, _paletteOpen);
+        var layout = ToolbarLayout.Compute(_sel, MonitorBounds(), _tool, _paletteOpen, _thicknessMenuOpen);
         _sidePanelRect = layout.SidePanel;
         _sideButtons.Clear(); _sideButtons.AddRange(layout.SideButtons);
         _bottomButtons.Clear(); _bottomButtons.AddRange(layout.BottomButtons);
@@ -533,6 +531,10 @@ public sealed class CaptureOverlay : Form
                 var dot = new Rectangle(b.Rect.Right - 12, b.Rect.Bottom - 12, 7, 7);
                 using var sb = new SolidBrush(_color);
                 g.FillEllipse(sb, dot);
+            }
+            else if (b.Id == "thickness")
+            {
+                DrawThicknessGlyph(g, b.Rect, b.Active ? Color.Black : Theme.Text);
             }
         }
 
@@ -582,6 +584,52 @@ public sealed class CaptureOverlay : Form
                 using var pen = new Pen(Color.White, 2);
                 g.DrawPath(pen, pth);
             }
+        }
+    }
+
+    /// <summary>Ícone do botão de espessura: 3 barras de peso crescente.</summary>
+    private static void DrawThicknessGlyph(Graphics g, Rectangle r, Color color)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        int[] w = { 10, 14, 18 };
+        int[] barH = { 2, 3, 4 };
+        int gap = 3;
+        int totalH = barH.Sum() + gap * (barH.Length - 1);
+        int cx = r.X + r.Width / 2;
+        int y = r.Y + (r.Height - totalH) / 2;
+        using var b = new SolidBrush(color);
+        for (int i = 0; i < w.Length; i++)
+        {
+            g.FillRectangle(b, cx - w[i] / 2, y, w[i], barH[i]);
+            y += barH[i] + gap;
+        }
+    }
+
+    /// <summary>Popup com os 3 níveis de espessura (fina/média/grossa) — cada botão mostra um preview da linha.</summary>
+    private void DrawThicknessMenu(Graphics g)
+    {
+        _thicknessSwatches.Clear();
+        var btn = _sideButtons.FirstOrDefault(b => b.Id == "thickness");
+        if (btn is null) return;
+        int bw = 46, bh = 34, gap = 6, pad = 8;
+        int w = ThicknessLevels.Length * bw + (ThicknessLevels.Length - 1) * gap + pad * 2;
+        int h = bh + pad * 2;
+        int x = btn.Rect.Left - w - 8;
+        if (x < 8) x = btn.Rect.Right + 8;
+        int y = btn.Rect.Top;
+        var panel = new Rectangle(x, y, w, h);
+        Theme.DrawPanel(g, panel);
+        for (int i = 0; i < ThicknessLevels.Length; i++)
+        {
+            var rr = new Rectangle(x + pad + i * (bw + gap), y + pad, bw, bh);
+            _thicknessSwatches.Add((rr, ThicknessLevels[i]));
+            bool selected = ThicknessLevels[i] == _thickness;
+            using (var p = Theme.RoundRect(rr, 8))
+            using (var fill = new SolidBrush(selected ? Color.White : Theme.SurfaceHover))
+                g.FillPath(fill, p);
+            using var pen = new Pen(selected ? Color.Black : Theme.Text, ThicknessLevels[i]) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            int midY = rr.Y + rr.Height / 2;
+            g.DrawLine(pen, rr.X + 10, midY, rr.Right - 10, midY);
         }
     }
 
