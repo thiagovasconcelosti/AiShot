@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/AiShot/AiShot.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AiShot.Tests/AiShot.Tests.csproj" />
+  </Folder>
 </Solution>

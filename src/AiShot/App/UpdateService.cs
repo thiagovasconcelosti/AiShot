@@ -72,7 +72,7 @@ public static class UpdateService
     /// Só confia em URLs HTTPS do GitHub (host do release/assets). Evita rodar
     /// binário de origem inesperada mesmo que a resposta da API fosse adulterada.
     /// </summary>
-    private static bool IsTrustedUrl(string? url)
+    internal static bool IsTrustedUrl(string? url)
     {
         if (url is null || !Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
         if (u.Scheme != Uri.UriSchemeHttps) return false;

@@ -35,8 +35,19 @@ public sealed class AppConfig
     private static string LegacyPath =>
         Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
+    /// <summary>
+    /// Carrega a configuração. Sem <paramref name="path"/>, usa
+    /// <see cref="DefaultPath"/> e migra a configuração legada (ao lado do
+    /// executável) caso o arquivo novo ainda não exista.
+    /// </summary>
+    /// <param name="path">
+    /// Caminho explícito. Quando informado, a migração legada NÃO se aplica: o
+    /// chamador pediu um arquivo específico, e ler outro no lugar seria uma
+    /// surpresa — se ele não existir, valem os padrões.
+    /// </param>
     public static AppConfig Load(string? path = null)
     {
+        bool caminhoPadrao = path is null;
         path ??= DefaultPath;
 
         AppConfig cfg;
@@ -45,7 +56,7 @@ public sealed class AppConfig
         {
             cfg = Deserialize(path);
         }
-        else if (File.Exists(LegacyPath))
+        else if (caminhoPadrao && File.Exists(LegacyPath))
         {
             // Migração: lê config antiga (texto puro ao lado do exe) e regrava
             // no novo local com os segredos cifrados.
