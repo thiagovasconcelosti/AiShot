@@ -51,18 +51,42 @@ public class AppConfigTests : IDisposable
         // apenas para o caminho padrão: com um caminho explícito, o chamador pediu
         // um arquivo específico e ler outro no lugar seria uma surpresa.
         //
-        // Este teste vale por si (o parâmetro deve ser respeitado) e cobre uma
-        // regressão real: a pasta de saída dos testes recebe uma cópia do
-        // appsettings.json do projeto principal, que era carregada no lugar dos
-        // padrões e fazia Load_SemArquivo_DevolveOsPadroes falhar.
-        var legado = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-        Assert.True(File.Exists(legado),
-            "A pasta de saída deveria conter um appsettings.json — é ele que torna este teste significativo.");
+        // Cobre uma regressão real: a pasta de saída dos testes pode receber uma
+        // cópia do appsettings.json do projeto principal, que era carregada no
+        // lugar dos padrões e fazia Load_SemArquivo_DevolveOsPadroes falhar.
+        //
+        // O arquivo legado é criado aqui em vez de assumido: numa árvore recém
+        // clonada ele não existe, e depender do resíduo de um build anterior
+        // tornaria o teste verde por acidente numa máquina e vermelho na outra.
+        using var legado = new ArquivoLegadoTemporario("""{"ai":{"provider":"openai"}}""");
 
         var cfg = AppConfig.Load(_caminho);
 
         Assert.Equal(new AppConfig().Ai.Provider, cfg.Ai.Provider);
         Assert.False(File.Exists(_caminho)); // e não regravou nada no caminho pedido
+    }
+
+    /// <summary>
+    /// Coloca um appsettings.json ao lado do assembly em execução — o local que
+    /// <c>AppConfig</c> trata como configuração legada — e restaura o estado
+    /// anterior ao ser descartado, inclusive quando já havia um arquivo lá.
+    /// </summary>
+    private sealed class ArquivoLegadoTemporario : IDisposable
+    {
+        private readonly string _caminho = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        private readonly string? _conteudoAnterior;
+
+        public ArquivoLegadoTemporario(string conteudo)
+        {
+            _conteudoAnterior = File.Exists(_caminho) ? File.ReadAllText(_caminho) : null;
+            File.WriteAllText(_caminho, conteudo);
+        }
+
+        public void Dispose()
+        {
+            if (_conteudoAnterior is null) File.Delete(_caminho);
+            else File.WriteAllText(_caminho, _conteudoAnterior);
+        }
     }
 
     // ---------- Ida e volta ----------
