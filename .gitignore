@@ -16,3 +16,12 @@ web/dist/
 # Artefatos locais de planejamento (o ROADMAP.md versionado é a fonte pública)
 .milestones/
 *.local.md
+
+# Saída dos testes (relatórios .trx, cobertura)
+artefatos/
+TestResults/
+
+# Gerados pelo fluxo de release a partir dos .template correspondentes —
+# a versão e o checksum só existem depois que o instalador é compilado.
+chocolatey/aishot.nuspec
+chocolatey/tools/chocolateyinstall.ps1

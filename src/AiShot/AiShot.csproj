@@ -11,7 +11,8 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>AiShot</AssemblyName>
     <RootNamespace>AiShot</RootNamespace>
-    <Version>0.1.3</Version>
+    <!-- Definida em Directory.Build.props, na raiz do repositório. -->
+    <Version>$(AiShotVersion)</Version>
   </PropertyGroup>
 
   <!-- Expõe os tipos internos ao projeto de testes: SelectionGeometry,

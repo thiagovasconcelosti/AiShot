@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    Fonte única da versão do AiShot.
+
+    Todo artefato de distribuição deriva daqui: o assembly (via AiShot.csproj),
+    o instalador Inno Setup, o nuspec do Chocolatey e o script de instalação do
+    pacote. O fluxo de release lê este arquivo e injeta o valor nos demais, em
+    vez de depender de edição manual em cada um.
+
+    Ao publicar uma versão, altere apenas esta propriedade.
+  -->
+  <PropertyGroup>
+    <AiShotVersion>0.1.3</AiShotVersion>
+  </PropertyGroup>
+
+</Project>

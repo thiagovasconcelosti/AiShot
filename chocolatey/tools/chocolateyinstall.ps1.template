@@ -1,0 +1,20 @@
+$ErrorActionPreference = 'Stop'
+
+# ATENÇÃO: este arquivo é um modelo. O fluxo de release substitui {{VERSION}} e
+# {{CHECKSUM}} pelos valores do instalador recém-publicado e grava o resultado
+# em chocolateyinstall.ps1. Não edite o checksum à mão — ele é calculado a
+# partir do mesmo artefato para o qual a URL aponta, o que impede que os dois
+# divirjam silenciosamente.
+
+$packageArgs = @{
+  packageName    = 'aishot'
+  fileType       = 'exe'
+  url            = 'https://github.com/thiagovasconcelosti/AiShot/releases/download/v{{VERSION}}/AiShot-Setup-{{VERSION}}.exe'
+  checksum       = '{{CHECKSUM}}'
+  checksumType   = 'sha256'
+  # Inno Setup: instalação silenciosa
+  silentArgs     = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
+  validExitCodes = @(0)
+}
+
+Install-ChocolateyPackage @packageArgs
