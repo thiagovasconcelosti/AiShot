@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows.Forms;
 using AiShot.Config;
@@ -18,7 +19,11 @@ namespace AiShot.Settings;
 public sealed class SettingsForm : Form
 {
     private static readonly Color DarkBg = Color.FromArgb(11, 11, 13);
-    private static string WvDataDir => Path.Combine(Path.GetTempPath(), "AiShot.WebView2");
+    // Perfil do navegador embarcado. Fica junto do cache da interface, em
+    // %LOCALAPPDATA%, e não na pasta temporária compartilhada.
+    private static string WvDataDir => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AiShot", "WebView2");
 
     // Ambiente compartilhado (não spawna browser) — só encurta a criação.
     private static Task<CoreWebView2Environment>? _envTask;
@@ -136,7 +141,9 @@ public sealed class SettingsForm : Form
             switch (type)
             {
                 case "ready": SendConfig(); _ = CheckUpdateAsync(); break;
-                case "startUpdate": _ = DoUpdateAsync(root.TryGetProperty("url", out var uu) ? uu.GetString() : null); break;
+                // A URL enviada pela página é ignorada de propósito — a origem do
+                // download é a UpdateInfo guardada no C# (ver DoUpdateAsync).
+                case "startUpdate": _ = DoUpdateAsync(); break;
                 case "save":
                     try { Save(root.GetProperty("config")); }
                     catch (Exception ex)
@@ -182,21 +189,33 @@ public sealed class SettingsForm : Form
         _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
     }
 
+    /// <summary>
+    /// Atualização disponível, guardada do lado do C#. A interface web recebe
+    /// apenas a versão e a URL para exibição — o download usa este objeto, não
+    /// o que volta da ponte, para que uma página comprometida não consiga
+    /// apontar o instalador para outro lugar.
+    /// </summary>
+    private AiShot.App.UpdateInfo? _atualizacao;
+
     private async Task CheckUpdateAsync()
     {
         var info = await AiShot.App.UpdateService.CheckAsync(_http).ConfigureAwait(false);
         if (info is null || IsDisposed) return;
+        _atualizacao = info;
         var msg = JsonSerializer.Serialize(new { type = "updateAvailable", version = info.Version, url = info.Url });
         void Post() { if (!IsDisposed && _web.CoreWebView2 is not null) _web.CoreWebView2.PostWebMessageAsJson(msg); }
         if (InvokeRequired) BeginInvoke(Post); else Post();
     }
 
-    private async Task DoUpdateAsync(string? url)
+    private async Task DoUpdateAsync()
     {
-        if (url is null) return;
+        var info = _atualizacao;
+        if (info is null) return;
         try
         {
-            await AiShot.App.UpdateService.DownloadAndRunAsync(_http, url).ConfigureAwait(true);
+            await AiShot.App.UpdateService
+                .DownloadAndRunAsync(_http, info.Url, info.ChecksumUrl)
+                .ConfigureAwait(true);
             Application.Exit(); // fecha o app para o instalador atualizar
         }
         catch (Exception ex)
@@ -272,8 +291,21 @@ public sealed class SettingsForm : Form
 
     // ---------- Recursos ----------
 
-    /// <summary>Raiz dos caches do bundle web (um subdiretório por build).</summary>
-    private static string WebUiCacheRoot => Path.Combine(Path.GetTempPath(), "AiShot.webui");
+    /// <summary>
+    /// Raiz dos caches do bundle web (um subdiretório por build).
+    /// </summary>
+    /// <remarks>
+    /// Fica em %LOCALAPPDATA%, e não em %TEMP%: o WebView2 carrega HTML e
+    /// JavaScript daqui, e a pasta temporária é um diretório de escrita comum a
+    /// todo processo do usuário. O caminho por aplicativo reduz a chance de outro
+    /// processo trocar o conteúdo entre a extração e a carga da página.
+    /// </remarks>
+    private static string WebUiCacheRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AiShot", "webui");
+
+    /// <summary>Raiz legada, em %TEMP% — limpa na inicialização.</summary>
+    private static string LegacyWebUiCacheRoot => Path.Combine(Path.GetTempPath(), "AiShot.webui");
 
     /// <summary>
     /// Chave do cache: muda a cada build -> invalida o cache quando o bundle web
@@ -283,42 +315,108 @@ public sealed class SettingsForm : Form
         typeof(SettingsForm).Assembly.ManifestModule.ModuleVersionId.ToString("N");
 
     /// <summary>
-    /// Remove os caches de builds anteriores. Como a chave muda a cada build,
-    /// cada atualização do app abandonaria um diretório para sempre.
+    /// Remove os caches de builds anteriores, na raiz atual e na legada. Como a
+    /// chave muda a cada build, cada atualização do app abandonaria um diretório
+    /// para sempre.
     /// </summary>
     public static void CleanupStaleWebUiCaches()
     {
+        // A raiz legada sai por inteiro: nada mais é servido de lá.
+        RemoverSubdiretorios(LegacyWebUiCacheRoot, exceto: null);
+        RemoverSubdiretorios(WebUiCacheRoot, exceto: WebUiCacheKey);
+    }
+
+    private static void RemoverSubdiretorios(string raiz, string? exceto)
+    {
         try
         {
-            if (!Directory.Exists(WebUiCacheRoot)) return;
-            var current = WebUiCacheKey;
-            foreach (var dir in Directory.EnumerateDirectories(WebUiCacheRoot))
+            if (!Directory.Exists(raiz)) return;
+            foreach (var dir in Directory.EnumerateDirectories(raiz))
             {
-                if (string.Equals(Path.GetFileName(dir), current, StringComparison.OrdinalIgnoreCase))
+                if (exceto is not null &&
+                    string.Equals(Path.GetFileName(dir), exceto, StringComparison.OrdinalIgnoreCase))
                     continue; // o cache em uso
+
                 try { Directory.Delete(dir, recursive: true); }
                 catch (Exception ex) { Debug.WriteLine($"CleanupStaleWebUiCaches: não removeu '{dir}': {ex.Message}"); }
             }
         }
-        catch (Exception ex) { Debug.WriteLine($"CleanupStaleWebUiCaches falhou: {ex.Message}"); }
+        catch (Exception ex) { Debug.WriteLine($"CleanupStaleWebUiCaches falhou em '{raiz}': {ex.Message}"); }
     }
 
+    /// <summary>
+    /// Extrai o bundle web para o cache e devolve o diretório servido ao WebView2.
+    /// </summary>
+    /// <remarks>
+    /// O cache só é reaproveitado quando todos os arquivos conferem byte a byte
+    /// com os recursos embarcados. Verificar apenas a presença do index.html
+    /// deixaria o WebView2 servir um arquivo trocado por outro processo depois
+    /// da extração; qualquer divergência força a reextração.
+    /// </remarks>
     private static string ExtractWebUI()
     {
         var dir = Path.Combine(WebUiCacheRoot, WebUiCacheKey);
-        if (File.Exists(Path.Combine(dir, "index.html"))) return dir; // cache
+        var recursos = RecursosDaWebUi();
+
+        if (CacheConfere(dir, recursos)) return dir;
+
+        // Recomeça do zero: um cache parcial ou adulterado não é aproveitável.
+        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+        catch (Exception ex) { Debug.WriteLine($"ExtractWebUI: não limpou '{dir}': {ex.Message}"); }
 
         var asm = Assembly.GetExecutingAssembly();
-        foreach (var res in asm.GetManifestResourceNames().Where(n => n.StartsWith("webui/", StringComparison.Ordinal)))
+        foreach (var (recurso, relativo) in recursos)
         {
-            var rel = res["webui/".Length..].Replace('/', Path.DirectorySeparatorChar);
-            var target = Path.Combine(dir, rel);
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            using var s = asm.GetManifestResourceStream(res)!;
-            using var f = File.Create(target);
+            var destino = Path.Combine(dir, relativo);
+            Directory.CreateDirectory(Path.GetDirectoryName(destino)!);
+            using var s = asm.GetManifestResourceStream(recurso)!;
+            using var f = File.Create(destino);
             s.CopyTo(f);
         }
         return dir;
+    }
+
+    /// <summary>Recursos embarcados do bundle web e seu caminho relativo no disco.</summary>
+    private static List<(string Recurso, string Relativo)> RecursosDaWebUi()
+    {
+        const string prefixo = "webui/";
+        return Assembly.GetExecutingAssembly()
+            .GetManifestResourceNames()
+            .Where(n => n.StartsWith(prefixo, StringComparison.Ordinal))
+            .Select(n => (n, n[prefixo.Length..].Replace('/', Path.DirectorySeparatorChar)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Confere se o cache no disco corresponde exatamente aos recursos embarcados.
+    /// Falha ao ler qualquer arquivo conta como divergência.
+    /// </summary>
+    private static bool CacheConfere(string dir, List<(string Recurso, string Relativo)> recursos)
+    {
+        if (!Directory.Exists(dir)) return false;
+
+        try
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            foreach (var (recurso, relativo) in recursos)
+            {
+                var destino = Path.Combine(dir, relativo);
+                if (!File.Exists(destino)) return false;
+
+                using var esperado = asm.GetManifestResourceStream(recurso)!;
+                using var atual = File.OpenRead(destino);
+                if (esperado.Length != atual.Length) return false;
+
+                if (!SHA256.HashData(esperado).AsSpan().SequenceEqual(SHA256.HashData(atual)))
+                    return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"CacheConfere falhou em '{dir}': {ex.Message}");
+            return false;
+        }
     }
 
     private static Icon? LoadFormIcon()
