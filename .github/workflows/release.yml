@@ -1,0 +1,132 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # necessário para criar o release e subir os artefatos
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar o .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Instalar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # A versão vive em Directory.Build.props e é a fonte única do repositório.
+      # A tag precisa concordar com ela: publicar v0.2.0 a partir de uma árvore
+      # que ainda diz 0.1.3 geraria um instalador com o nome de uma versão e o
+      # assembly de outra, e o auto-update entraria em laço de reinstalação.
+      - name: Conferir a versão contra a tag
+        shell: pwsh
+        run: |
+          $props = [xml](Get-Content Directory.Build.props)
+          $versao = $props.Project.PropertyGroup.AiShotVersion.Trim()
+          $daTag = "${{ github.ref_name }}".TrimStart('v')
+          Write-Host "Directory.Build.props: $versao"
+          Write-Host "Tag:                   $daTag"
+          if ($versao -ne $daTag) {
+            throw "A versão em Directory.Build.props ($versao) não corresponde à tag ($daTag)."
+          }
+          "VERSAO=$versao" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Instalar as dependências da interface web
+        run: npm ci
+        working-directory: web
+
+      - name: Testar
+        run: dotnet test AiShot.slnx --configuration Release
+
+      # Não usar PublishSingleFile: o executável auto-extraível dispara
+      # falso-positivo de antivírus. Ver RELEASING.md.
+      - name: Publicar o aplicativo
+        run: >
+          dotnet publish src/AiShot/AiShot.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:DebugType=none
+          --output dist/app
+
+      - name: Gerar o instalador
+        shell: pwsh
+        run: |
+          # O Inno Setup instala em Program Files (x86) por padrão, mas a
+          # instalação por usuário fica em LOCALAPPDATA — o RELEASING.md
+          # documenta esse segundo caminho. Aceita os dois.
+          $candidatos = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe não encontrado. Procurado em:`n$($candidatos -join "`n")" }
+          Write-Host "Usando: $iscc"
+          & $iscc "/DAppVersion=$env:VERSAO" installer\AiShot.iss
+          if ($LASTEXITCODE -ne 0) { throw "O Inno Setup falhou com código $LASTEXITCODE." }
+
+      - name: Empacotar a versão portátil
+        shell: pwsh
+        run: Compress-Archive dist/app/* "dist/AiShot-$env:VERSAO-portable.zip" -Force
+
+      # O checksum é calculado a partir do mesmo arquivo que será publicado,
+      # e não digitado à mão — URL e hash não podem divergir.
+      - name: Calcular o checksum do instalador
+        shell: pwsh
+        run: |
+          $instalador = "dist/AiShot-Setup-$env:VERSAO.exe"
+          if (-not (Test-Path $instalador)) { throw "Instalador não encontrado: $instalador" }
+          $hash = (Get-FileHash $instalador -Algorithm SHA256).Hash
+          Write-Host "SHA256: $hash"
+          "CHECKSUM=$hash" | Out-File $env:GITHUB_ENV -Append
+          "$hash  AiShot-Setup-$env:VERSAO.exe" | Out-File "dist/AiShot-Setup-$env:VERSAO.exe.sha256" -Encoding ascii
+
+      - name: Gerar o pacote do Chocolatey a partir dos modelos
+        shell: pwsh
+        run: |
+          foreach ($modelo in @(
+            @{ Origem = 'chocolatey/aishot.nuspec.template'; Destino = 'chocolatey/aishot.nuspec' },
+            @{ Origem = 'chocolatey/tools/chocolateyinstall.ps1.template'; Destino = 'chocolatey/tools/chocolateyinstall.ps1' }
+          )) {
+            (Get-Content $modelo.Origem -Raw).
+              Replace('{{VERSION}}', $env:VERSAO).
+              Replace('{{CHECKSUM}}', $env:CHECKSUM) |
+              Set-Content $modelo.Destino -NoNewline
+          }
+          # Falha cedo se algum marcador tiver sobrado sem substituição.
+          $restantes = Select-String -Path chocolatey/aishot.nuspec, chocolatey/tools/chocolateyinstall.ps1 -Pattern '\{\{|\}\}'
+          if ($restantes) { throw "Marcadores não substituídos: $($restantes -join '; ')" }
+
+      - name: Empacotar para o Chocolatey
+        shell: pwsh
+        working-directory: chocolatey
+        run: |
+          choco pack
+          if ($LASTEXITCODE -ne 0) { throw "choco pack falhou com código $LASTEXITCODE." }
+
+      - name: Publicar o release
+        shell: pwsh
+        run: >
+          gh release create "${{ github.ref_name }}"
+          --title "AiShot ${{ github.ref_name }}"
+          --generate-notes
+          "dist/AiShot-Setup-$env:VERSAO.exe"
+          "dist/AiShot-Setup-$env:VERSAO.exe.sha256"
+          "dist/AiShot-$env:VERSAO-portable.zip"
+          "chocolatey/aishot.$env:VERSAO.nupkg"
+        env:
+          GH_TOKEN: ${{ github.token }}

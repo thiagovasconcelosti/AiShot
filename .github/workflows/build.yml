@@ -1,0 +1,70 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Uma execução por branch: um push novo cancela a anterior ainda em andamento.
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # O aplicativo é WinForms e os testes usam DPAPI e System.Drawing —
+    # só roda em Windows.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar o .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Instalar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # O AiShot.csproj tem um alvo que roda "npm run build" e embute o
+      # resultado como recurso. Instalar as dependências aqui deixa esse passo
+      # pronto antes de qualquer compilação do .NET.
+      - name: Instalar as dependências da interface web
+        run: npm ci
+        working-directory: web
+
+      - name: Verificar o lint da interface web
+        run: npm run lint
+        working-directory: web
+
+      - name: Restaurar os pacotes do .NET
+        run: dotnet restore AiShot.slnx
+
+      - name: Compilar
+        run: dotnet build AiShot.slnx --configuration Release --no-restore
+
+      - name: Testar
+        run: >
+          dotnet test AiShot.slnx
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=resultados.trx"
+          --results-directory artefatos/testes
+
+      - name: Publicar os resultados dos testes
+        # Sobe o relatório mesmo quando a etapa de teste falha — é justamente
+        # aí que ele é útil.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-dos-testes
+          path: artefatos/testes
+          if-no-files-found: warn

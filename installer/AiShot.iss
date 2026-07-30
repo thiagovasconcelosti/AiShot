@@ -4,7 +4,12 @@
 ; falso-positivo de antivirus que exe empacotado/auto-extraivel).
 
 #define AppName "AiShot"
-#define AppVersion "0.1.3"
+; A versão vem da linha de comando do compilador (ISCC /DAppVersion=x.y.z), que
+; a lê de Directory.Build.props — a fonte única do repositório. O valor abaixo
+; é apenas o padrão para compilações locais feitas sem o parâmetro.
+#ifndef AppVersion
+  #define AppVersion "0.1.3"
+#endif
 #define AppPublisher "Thiago Vasconcelos"
 #define AppExe "AiShot.exe"
 

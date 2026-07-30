@@ -207,27 +207,51 @@ public sealed class GlobalHotKey : IDisposable
         return ctrl == _needCtrl && alt == _needAlt && shift == _needShift && win == _needWin;
     }
 
-    /// <summary>Converte "Ctrl+Alt+PrintScreen" em vk alvo + flags de modificador.</summary>
+    /// <summary>Aplica o resultado de <see cref="ParseHotKey"/> aos campos da instância.</summary>
     private void ParseHotKey(string name)
     {
-        _needCtrl = _needAlt = _needShift = _needWin = false;
+        var combo = Parse(name);
+        _needCtrl = combo.Ctrl;
+        _needAlt = combo.Alt;
+        _needShift = combo.Shift;
+        _needWin = combo.Win;
+        _targetVk = (uint)combo.Key;
+    }
+
+    /// <summary>Combinação de teclas já interpretada.</summary>
+    internal readonly record struct HotKeyCombo(Keys Key, bool Ctrl, bool Alt, bool Shift, bool Win);
+
+    /// <summary>
+    /// Converte "Ctrl+Alt+PrintScreen" em tecla alvo + modificadores. Função
+    /// pura: não toca no estado da instância nem no hook.
+    /// </summary>
+    /// <remarks>
+    /// Entradas não reconhecidas caem em <see cref="Keys.PrintScreen"/> — um
+    /// atalho inválido no arquivo de configuração não deve deixar o aplicativo
+    /// sem nenhuma forma de capturar.
+    /// </remarks>
+    internal static HotKeyCombo Parse(string? name)
+    {
+        bool ctrl = false, alt = false, shift = false, win = false;
         Keys key = Keys.None;
-        foreach (var raw in name.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+
+        foreach (var raw in (name ?? "").Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             switch (raw.ToLowerInvariant())
             {
-                case "ctrl": case "control": _needCtrl = true; break;
-                case "alt": _needAlt = true; break;
-                case "shift": _needShift = true; break;
-                case "win": case "windows": _needWin = true; break;
+                case "ctrl": case "control": ctrl = true; break;
+                case "alt": alt = true; break;
+                case "shift": shift = true; break;
+                case "win": case "windows": win = true; break;
                 case "printscreen": case "prtsc": case "prtscr": key = Keys.PrintScreen; break;
                 default:
                     if (Enum.TryParse<Keys>(raw, true, out var k)) key = k;
                     break;
             }
         }
+
         if (key == Keys.None) key = Keys.PrintScreen;
-        _targetVk = (uint)key;
+        return new HotKeyCombo(key, ctrl, alt, shift, win);
     }
 
     public void Dispose()
