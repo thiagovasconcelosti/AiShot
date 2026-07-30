@@ -26,7 +26,8 @@ internal static class ToolbarLayout
         (Icons.Text, "text", "Texto", Tool.Text),
         (Icons.Palette, "color", "Cor", Tool.None),
         ("", "thickness", "Espessura", Tool.None),
-        (Icons.Undo, "undo", "Desfazer", Tool.None),
+        (Icons.Undo, "undo", "Desfazer (Ctrl+Z)", Tool.None),
+        (Icons.Redo, "redo", "Refazer (Ctrl+Y)", Tool.None),
     };
 
     private static readonly (string glyph, string id, string tip)[] Actions =
