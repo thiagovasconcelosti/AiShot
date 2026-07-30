@@ -31,14 +31,25 @@ public sealed class SettingsForm : Form
     private readonly AppConfig _cfg;
     private readonly AiShot.HotKey.GlobalHotKey? _hotKeyService;
     private readonly HttpClient _http;
+    // Ambos são adicionados a Controls no construtor: o Form descarta os filhos
+    // no próprio Dispose. O _web ainda é descartado explicitamente em
+    // OnFormClosed, para encerrar os processos do navegador assim que a janela
+    // fecha, em vez de esperar o descarte do formulário.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Usage", "CA2213:Campos descartáveis devem ser descartados",
+        Justification = "Controle filho; descartado por Controls e explicitamente em OnFormClosed.")]
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = DarkBg };
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Usage", "CA2213:Campos descartáveis devem ser descartados",
+        Justification = "Controle filho; o Form descarta o que está em Controls.")]
     private readonly LoadingOverlay _loading = new() { Dock = DockStyle.Fill };
 
     public SettingsForm(AppConfig cfg, AiShot.HotKey.GlobalHotKey? hotKeyService = null, HttpClient? http = null)
     {
         _cfg = cfg;
         _hotKeyService = hotKeyService;
-        _http = http ?? new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+        _http = http ?? HttpClientFactory.Create();
 
         Text = "AiShot — Configurações";
         StartPosition = FormStartPosition.CenterScreen;

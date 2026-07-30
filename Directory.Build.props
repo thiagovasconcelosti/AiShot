@@ -14,4 +14,15 @@
     <AiShotVersion>0.1.3</AiShotVersion>
   </PropertyGroup>
 
+  <!--
+    Aviso é erro. O projeto compilava com avisos havia tempo (DPI no manifest,
+    conflito de assembly do WebView2), e um aviso que ninguém lê deixa de
+    sinalizar qualquer coisa. Tratá-los como erro força a decisão no momento em
+    que surgem: corrigir a causa, ou silenciar explicitamente com o motivo.
+  -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
 </Project>

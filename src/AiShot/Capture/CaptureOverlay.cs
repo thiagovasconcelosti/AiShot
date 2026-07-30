@@ -44,7 +44,13 @@ public sealed class CaptureOverlay : Form
     // Chat (componente extraído) + cancelamento compartilhado (chat/upload)
     private readonly CancellationTokenSource _cts = new();
     private readonly ChatPanel _chat;
-    private TextBox? _textInput; // ferramenta de texto
+    // Ferramenta de texto. Vive apenas entre BeginTextInput e Commit/Cancel;
+    // CancelTextInput o remove de Controls e o descarta, e o que restar aberto
+    // ao fechar a janela é descartado pelo Form junto dos demais filhos.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Usage", "CA2213:Campos descartáveis devem ser descartados",
+        Justification = "Controle filho temporário; descartado por CancelTextInput e por Controls.")]
+    private TextBox? _textInput;
 
     private static readonly Color[] Palette =
     {

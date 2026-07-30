@@ -189,7 +189,12 @@ public sealed class AiConfig
     /// <summary>"anthropic" ou "openai".</summary>
     public string Provider { get; set; } = "anthropic";
     public string ApiKey { get; set; } = "";
-    public string Model { get; set; } = "claude-opus-4-8";
+    /// <summary>
+    /// Identificador do modelo. Acompanha as versões publicadas pelo provedor e
+    /// precisa ser revisado periodicamente — um identificador retirado do ar faz
+    /// a API responder 404 na primeira captura.
+    /// </summary>
+    public string Model { get; set; } = "claude-opus-5";
     /// <summary>Override opcional da URL base da API.</summary>
     public string BaseUrl { get; set; } = "";
 

@@ -1,0 +1,71 @@
+# Convenções de código do AiShot.
+# https://learn.microsoft.com/dotnet/fundamentals/code-analysis/configuration-files
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
+
+[*.{ts,tsx,css,html}]
+indent_size = 2
+
+[*.md]
+# Duas espaços ao final da linha significam quebra em Markdown.
+trim_trailing_whitespace = false
+
+[*.{cs,csproj,props,targets}]
+indent_size = 4
+
+[*.cs]
+# --- Organização ---
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+
+# --- Estilo já adotado no código existente ---
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = false:silent
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_prefer_braces = when_multiline:silent
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_prefer_pattern_matching = true:suggestion
+csharp_style_throw_expression = true:suggestion
+csharp_prefer_simple_using_statement = true:suggestion
+
+# --- Nomenclatura ---
+dotnet_naming_rule.campos_privados_com_sublinhado.severity = warning
+dotnet_naming_rule.campos_privados_com_sublinhado.symbols = campo_privado
+dotnet_naming_rule.campos_privados_com_sublinhado.style = prefixo_sublinhado
+
+dotnet_naming_symbols.campo_privado.applicable_kinds = field
+dotnet_naming_symbols.campo_privado.applicable_accessibilities = private
+dotnet_naming_symbols.campo_privado.required_modifiers =
+
+dotnet_naming_style.prefixo_sublinhado.required_prefix = _
+dotnet_naming_style.prefixo_sublinhado.capitalization = camel_case
+
+# --- Análise ---
+# Erros que indicam bug em potencial, não preferência de estilo.
+dotnet_diagnostic.CA2016.severity = warning  # repassar o CancellationToken
+dotnet_diagnostic.CA2200.severity = warning  # relançar preservando a pilha
+dotnet_diagnostic.CA1063.severity = warning  # implementar Dispose corretamente
+dotnet_diagnostic.CA2213.severity = warning  # campo descartável não descartado
+
+# Ruído para este projeto: aplicativo desktop de idioma único.
+dotnet_diagnostic.CA1303.severity = none     # literais deveriam vir de recursos
+dotnet_diagnostic.CA1304.severity = none     # exigir CultureInfo
+dotnet_diagnostic.CA1305.severity = none     # exigir IFormatProvider
+dotnet_diagnostic.CA1310.severity = none     # exigir StringComparison em Contains
+
+[tests/**/*.cs]
+# Métodos de teste descrevem cenários e não seguem a nomenclatura de produção.
+dotnet_diagnostic.CA1707.severity = none     # sublinhado em identificador
