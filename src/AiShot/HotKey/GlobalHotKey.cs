@@ -77,15 +77,71 @@ public sealed class GlobalHotKey : IDisposable
         Unregister();
         ParseHotKey(hotKeyName);
         _hook = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, GetModuleHandle(null), 0);
+        if (_hook != IntPtr.Zero) StartWatchdog();
         return _hook != IntPtr.Zero;
     }
 
     public void Unregister()
     {
+        StopWatchdog();
         if (_hook != IntPtr.Zero)
         {
             UnhookWindowsHookEx(_hook);
             _hook = IntPtr.Zero;
+        }
+    }
+
+    // ---------- Vigia do hook ----------
+    //
+    // O Windows desinstala hooks WH_KEYBOARD_LL cujo callback exceda
+    // LowLevelHooksTimeout (~5 s por padrão). O handle continua não-nulo do
+    // nosso lado, então não há como perguntar ao sistema se o hook ainda vale:
+    // o atalho simplesmente para de funcionar, sem aviso.
+    //
+    // A verificação é indireta. Um hook já removido pelo sistema faz
+    // UnhookWindowsHookEx falhar com ERROR_INVALID_HOOK_HANDLE (1404); um hook
+    // vivo é removido com sucesso. Nos dois casos reinstalamos em seguida, de
+    // modo que o efeito é o mesmo — a diferença serve só para avisar o usuário
+    // uma única vez, na primeira queda observada.
+
+    private const int ErrorInvalidHookHandle = 1404;
+
+    private System.Windows.Forms.Timer? _watchdog;
+    private bool _reportedFailure;
+
+    /// <summary>Disparado quando o vigia detecta que o hook havia caído.</summary>
+    public event Action? HookRecovered;
+
+    private void StartWatchdog()
+    {
+        StopWatchdog();
+        _watchdog = new System.Windows.Forms.Timer { Interval = 30_000 };
+        _watchdog.Tick += (_, _) => VerifyHook();
+        _watchdog.Start();
+    }
+
+    private void StopWatchdog()
+    {
+        if (_watchdog is null) return;
+        _watchdog.Stop();
+        _watchdog.Dispose();
+        _watchdog = null;
+    }
+
+    /// <summary>Reinstala o hook e avisa se ele havia sido derrubado pelo sistema.</summary>
+    private void VerifyHook()
+    {
+        if (_hook == IntPtr.Zero || CaptureMode) return;
+
+        bool removed = UnhookWindowsHookEx(_hook);
+        bool wasDead = !removed && Marshal.GetLastWin32Error() == ErrorInvalidHookHandle;
+
+        _hook = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, GetModuleHandle(null), 0);
+
+        if (wasDead && !_reportedFailure)
+        {
+            _reportedFailure = true; // avisa só na primeira vez, para não incomodar
+            HookRecovered?.Invoke();
         }
     }
 
@@ -174,5 +230,11 @@ public sealed class GlobalHotKey : IDisposable
         _targetVk = (uint)key;
     }
 
-    public void Dispose() => Unregister();
+    public void Dispose()
+    {
+        Unregister();
+        Pressed = null;
+        KeyCaptured = null;
+        HookRecovered = null;
+    }
 }
