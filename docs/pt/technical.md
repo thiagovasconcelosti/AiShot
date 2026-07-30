@@ -66,7 +66,19 @@ Cada configuração pode ser sobrescrita por uma env var com prefixo `AISHOT_` (
 | `AISHOT_AI__VISION__ENABLED` | `true`/`false` |
 | `AISHOT_AI__VISION__APIKEY` / `__MODEL` | chave / modelo da visão |
 | `AISHOT_IMAGEUPLOAD__SERVICE` / `__APIKEY` | host de imagem / chave |
+| `AISHOT_HISTORY__ENABLED` | `true`/`false` (desligado por padrão) |
+| `AISHOT_HISTORY__MAXITEMS` / `__MAXSIZEMB` | limites de retenção |
 | `AISHOT_HOTKEY` | ex.: `PrintScreen`, `Ctrl+Alt+S` |
+
+## Histórico de capturas
+
+Desligado por padrão. Uma captura carrega o que estava na tela — senhas à mostra, conversas, documentos —, então gravá-la em disco é uma escolha do usuário, não um comportamento que ele descobre depois.
+
+Quando ligado, as capturas vão para `%LOCALAPPDATA%\AiShot\history` conforme o usuário copia, salva, envia ou abre o chat. Dois limites atuam, sempre descartando as mais antigas: quantidade de itens e espaço total em disco. A captura mais recente é sempre mantida, mesmo que sozinha estoure o limite de espaço — apagá-la logo depois de gravar esvaziaria o histórico na hora.
+
+O menu da bandeja lista as capturas guardadas com miniatura; clicar em uma copia-a de volta para a área de transferência. O mesmo menu abre a pasta e limpa o histórico (com confirmação — é irreversível, e pode ser a única cópia de uma captura que o usuário não salvou).
+
+A desinstalação pergunta separadamente sobre o histórico e sobre a configuração. Uma desinstalação silenciosa (`/VERYSILENT`) não apaga nenhum dos dois.
 
 ## Pipeline de IA
 
@@ -120,6 +132,7 @@ src/AiShot/
   Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, ServerSentEvents, HttpUtil)
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)
+  History/ (CaptureHistory)
   HotKey/ (GlobalHotKey)
   Settings/ (SettingsForm)
   UI/ (Theme, Icons), Assets/ (Phosphor.ttf, app.ico)

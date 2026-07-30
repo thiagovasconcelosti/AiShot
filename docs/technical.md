@@ -66,7 +66,19 @@ Every setting can be overridden by an env var prefixed `AISHOT_` (highest preced
 | `AISHOT_AI__VISION__ENABLED` | `true`/`false` |
 | `AISHOT_AI__VISION__APIKEY` / `__MODEL` | vision key / model |
 | `AISHOT_IMAGEUPLOAD__SERVICE` / `__APIKEY` | image host / key |
+| `AISHOT_HISTORY__ENABLED` | `true`/`false` (off by default) |
+| `AISHOT_HISTORY__MAXITEMS` / `__MAXSIZEMB` | retention limits |
 | `AISHOT_HOTKEY` | e.g. `PrintScreen`, `Ctrl+Alt+S` |
+
+## Capture history
+
+Off by default. A screenshot carries whatever was on screen — passwords in plain sight, conversations, documents — so writing it to disk is a choice the user makes, not a behaviour they discover afterwards.
+
+When enabled, captures are written to `%LOCALAPPDATA%\AiShot\history` as the user copies, saves, uploads, or opens the chat. Two limits apply, both discarding oldest-first: item count and total disk space. The most recent capture is always kept, even if it alone exceeds the size limit — deleting it right after writing would empty the history on the spot.
+
+The tray menu lists the stored captures with thumbnails; clicking one copies it back to the clipboard. The same menu opens the folder and clears the history (with confirmation — it is irreversible, and this may be the only copy of a capture the user never saved).
+
+Uninstalling asks separately about the history and the configuration. A silent uninstall (`/VERYSILENT`) deletes neither.
 
 ## AI pipeline
 
@@ -120,6 +132,7 @@ src/AiShot/
   Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, ServerSentEvents, HttpUtil)
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)
+  History/ (CaptureHistory)
   HotKey/ (GlobalHotKey)
   Settings/ (SettingsForm)
   UI/ (Theme, Icons), Assets/ (Phosphor.ttf, app.ico)

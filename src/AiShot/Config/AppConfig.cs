@@ -14,6 +14,7 @@ public sealed class AppConfig
     public bool CloseOnCopy { get; set; } = false;
     public AiConfig Ai { get; set; } = new();
     public ImageUploadConfig ImageUpload { get; set; } = new();
+    public HistoryConfig History { get; set; } = new();
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -142,6 +143,12 @@ public sealed class AppConfig
                 Service = ImageUpload.Service,
                 ApiKey = SecretProtector.Protect(ImageUpload.ApiKey),
             },
+            History = new HistoryConfig
+            {
+                Enabled = History.Enabled,
+                MaxItems = History.MaxItems,
+                MaxSizeMb = History.MaxSizeMb,
+            },
         };
         return c;
     }
@@ -181,6 +188,13 @@ public sealed class AppConfig
 
         ImageUpload.Service = E("IMAGEUPLOAD__SERVICE") ?? ImageUpload.Service;
         ImageUpload.ApiKey = E("IMAGEUPLOAD__APIKEY") ?? ImageUpload.ApiKey;
+
+        var histEnabled = E("HISTORY__ENABLED");
+        if (histEnabled is not null && bool.TryParse(histEnabled, out var he)) History.Enabled = he;
+        var histItems = E("HISTORY__MAXITEMS");
+        if (histItems is not null && int.TryParse(histItems, out var hi)) History.MaxItems = hi;
+        var histSize = E("HISTORY__MAXSIZEMB");
+        if (histSize is not null && int.TryParse(histSize, out var hs)) History.MaxSizeMb = hs;
     }
 }
 
@@ -228,4 +242,21 @@ public sealed class ImageUploadConfig
     /// <summary>"freeimage" (freeimage.host) ou "imgbb".</summary>
     public string Service { get; set; } = "freeimage";
     public string ApiKey { get; set; } = "";
+}
+
+/// <summary>Histórico das últimas capturas em disco.</summary>
+public sealed class HistoryConfig
+{
+    /// <summary>
+    /// Desligado por padrão. Uma captura carrega o que estava na tela — senhas
+    /// à mostra, conversas, documentos —, então gravá-la em disco é uma escolha
+    /// que o usuário faz, não um comportamento que ele descobre depois.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>Quantidade máxima de capturas guardadas.</summary>
+    public int MaxItems { get; set; } = 10;
+
+    /// <summary>Espaço máximo ocupado pelo histórico, em megabytes.</summary>
+    public int MaxSizeMb { get; set; } = 100;
 }
