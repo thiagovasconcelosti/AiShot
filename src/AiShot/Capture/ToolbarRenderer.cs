@@ -18,12 +18,16 @@ internal static class ToolbarRenderer
         new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
     /// <summary>Desenha as duas barras e os botões.</summary>
-    public static void DrawToolbars(Graphics g, ToolbarLayoutResult layout, Color corAtual)
+    /// <param name="focado">
+    /// Identificador do botão com o foco do teclado, que recebe um contorno
+    /// próprio. Null quando a navegação por teclado não está em uso.
+    /// </param>
+    public static void DrawToolbars(Graphics g, ToolbarLayoutResult layout, Color corAtual, string? focado = null)
     {
         Theme.DrawPanel(g, layout.SidePanel);
         foreach (var b in layout.SideButtons)
         {
-            DrawButton(g, b);
+            DrawButton(g, b, focado: b.Id == focado);
 
             // Dois botões ganham um indicador do valor em uso, além do ícone.
             if (b.Id == "color")
@@ -48,10 +52,10 @@ internal static class ToolbarRenderer
 
         Theme.DrawPanel(g, layout.BottomPanel);
         foreach (var b in layout.BottomButtons)
-            DrawButton(g, b, discreto: b.Id == "close");
+            DrawButton(g, b, discreto: b.Id == "close", focado: b.Id == focado);
     }
 
-    private static void DrawButton(Graphics g, IconButton b, bool discreto = false)
+    private static void DrawButton(Graphics g, IconButton b, bool discreto = false, bool focado = false)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -65,6 +69,17 @@ internal static class ToolbarRenderer
         var cor = b.Active ? Color.Black : (discreto ? Theme.TextMuted : Theme.Text);
         using var pincel = new SolidBrush(cor);
         g.DrawString(b.Glyph, Icons.Cached(20), pincel, b.Rect, CenterFmt);
+
+        // O contorno vem por último para não ficar sob o preenchimento do botão
+        // ativo — um botão pode estar ativo e focado ao mesmo tempo. Fica um
+        // pouco fora do retângulo, para não competir com o ícone.
+        if (focado)
+        {
+            var contorno = Rectangle.Inflate(b.Rect, 1, 1);
+            using var caneta = new Pen(Theme.FocusRing, 2);
+            using var p = Theme.RoundRect(contorno, 9);
+            g.DrawPath(caneta, p);
+        }
     }
 
     /// <summary>Ícone do botão de espessura: três barras de peso crescente.</summary>
