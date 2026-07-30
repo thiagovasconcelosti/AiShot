@@ -17,4 +17,4 @@
 
 - Código: [github.com/thiagovasconcelosti/AiShot](https://github.com/thiagovasconcelosti/AiShot)
 - Releases: [último](https://github.com/thiagovasconcelosti/AiShot/releases/latest)
-- Licencia: MIT
+- Licencia: MIT — avisos de terceros: [THIRD-PARTY-NOTICES.md](https://github.com/thiagovasconcelosti/AiShot/blob/master/THIRD-PARTY-NOTICES.md)

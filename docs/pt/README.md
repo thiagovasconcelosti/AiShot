@@ -17,4 +17,4 @@ O **AiShot** é um clone do Lightshot/prntscr voltado para IA. Captura uma regi�
 
 - Código: [github.com/thiagovasconcelosti/AiShot](https://github.com/thiagovasconcelosti/AiShot)
 - Releases: [último](https://github.com/thiagovasconcelosti/AiShot/releases/latest)
-- Licença: MIT
+- Licença: MIT — avisos de terceiros: [THIRD-PARTY-NOTICES.md](https://github.com/thiagovasconcelosti/AiShot/blob/master/THIRD-PARTY-NOTICES.md)

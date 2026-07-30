@@ -309,6 +309,7 @@ public sealed class CaptureOverlay : Form
         switch (id)
         {
             case "copy": _acoes.Copy(); break;
+            case "ocr": _ = _acoes.CopyTextFromImageAsync(_cts.Token); break;
             case "save": _acoes.Save(); break;
             case "paint": _acoes.OpenInPaint(); break;
             case "upload": _ = _acoes.UploadAsync(compartilhar: false, _cts.Token); break;

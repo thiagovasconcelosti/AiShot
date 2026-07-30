@@ -2,8 +2,15 @@
 
   <PropertyGroup>
     <!-- Mesmo alvo do app: SelectionGeometry e ToolbarLayout usam System.Drawing
-         e AppConfig usa DPAPI, ambos específicos do Windows. -->
-    <TargetFramework>net10.0-windows</TargetFramework>
+         e AppConfig usa DPAPI, ambos específicos do Windows. A versão do SO
+         acompanha a do app, que a exige para as APIs WinRT do OCR. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <!-- Com o alvo versionado (10.0.19041) e sem RID explícito, o VSTest não
+         descobre nenhum teste no assembly: falha com "Não há nenhum teste
+         disponível" mesmo com o adaptador presente na saída. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

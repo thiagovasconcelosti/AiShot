@@ -44,6 +44,12 @@ Name: "startup"; Description: "Iniciar o AiShot com o Windows"; GroupDescription
 
 [Files]
 Source: "..\dist\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Licenca propria e avisos dos componentes de terceiros. O WebView2 (BSD
+; 3-Clause) exige que a redistribuicao binaria reproduza o aviso de copyright
+; na documentacao que acompanha o programa; Phosphor e os pacotes da interface
+; sao MIT, que exige o mesmo.
+Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"

@@ -17,4 +17,4 @@
 
 - Source: [github.com/thiagovasconcelosti/AiShot](https://github.com/thiagovasconcelosti/AiShot)
 - Releases: [latest](https://github.com/thiagovasconcelosti/AiShot/releases/latest)
-- License: MIT
+- License: MIT — third-party notices: [THIRD-PARTY-NOTICES.md](https://github.com/thiagovasconcelosti/AiShot/blob/master/THIRD-PARTY-NOTICES.md)

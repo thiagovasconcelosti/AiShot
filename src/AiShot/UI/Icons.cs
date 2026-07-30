@@ -67,6 +67,7 @@ public static class Icons
     public static readonly string Sparkle = G("e6a2");
     public static readonly string Close = G("e4f6");       // x
     public static readonly string Send = G("e396");        // paper-plane-right
+    public static readonly string ScanText = G("e238");    // file-magnifying-glass
     public static readonly string Spinner = Redo;          // mesmo glifo: arrow-clockwise
 
     private static string G(string hex) => char.ConvertFromUtf32(Convert.ToInt32(hex, 16));
