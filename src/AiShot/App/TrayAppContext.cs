@@ -40,6 +40,7 @@ public sealed class TrayAppContext : ApplicationContext
         RegisterHotKey();
 
         CleanupTempFiles();
+        Settings.SettingsForm.CleanupStaleWebUiCaches(); // caches de builds antigos
         Settings.SettingsForm.Prewarm(); // aquece o WebView2 pra abrir Configurações rápido
     }
 

@@ -81,7 +81,7 @@ function mockConfig(): Config {
     closeOnCopy: false,
     ai: {
       provider: "openai",
-      apiKey: "sk-mock-key-1234567890",
+      apiKey: "",
       model: "deepseek-v4-flash",
       baseUrl: "https://api.deepseek.com",
       fallback: { provider: "openai", apiKey: "", model: "google/gemini-2.5-flash", baseUrl: "https://openrouter.ai/api" },

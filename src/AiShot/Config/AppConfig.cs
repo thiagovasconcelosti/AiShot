@@ -80,9 +80,12 @@ public sealed class AppConfig
         var json = JsonSerializer.Serialize(EncryptedClone(), JsonOpts);
 
         // Escrita atômica: grava em .tmp e troca, evitando corromper em crash.
+        // File.Replace preserva um backup da versão anterior e faz a troca no
+        // nível do sistema de arquivos; só serve quando o destino já existe.
         var tmp = path + ".tmp";
         File.WriteAllText(tmp, json);
-        File.Move(tmp, path, overwrite: true);
+        if (File.Exists(path)) File.Replace(tmp, path, path + ".bak", ignoreMetadataErrors: true);
+        else File.Move(tmp, path);
     }
 
     /// <summary>Decifra todas as chaves para uso em memória.</summary>
@@ -154,6 +157,7 @@ public sealed class AppConfig
             Ai.Fallback.Provider = E("AI__FALLBACK__PROVIDER") ?? Ai.Fallback.Provider;
             Ai.Fallback.ApiKey = E("AI__FALLBACK__APIKEY") ?? Ai.Fallback.ApiKey;
             Ai.Fallback.Model = E("AI__FALLBACK__MODEL") ?? Ai.Fallback.Model;
+            Ai.Fallback.BaseUrl = E("AI__FALLBACK__BASEURL") ?? Ai.Fallback.BaseUrl;
         }
 
         var visEnabled = E("AI__VISION__ENABLED");
@@ -162,6 +166,7 @@ public sealed class AppConfig
         Ai.Vision.Provider = E("AI__VISION__PROVIDER") ?? Ai.Vision.Provider;
         Ai.Vision.ApiKey = E("AI__VISION__APIKEY") ?? Ai.Vision.ApiKey;
         Ai.Vision.Model = E("AI__VISION__MODEL") ?? Ai.Vision.Model;
+        Ai.Vision.BaseUrl = E("AI__VISION__BASEURL") ?? Ai.Vision.BaseUrl;
 
         ImageUpload.Service = E("IMAGEUPLOAD__SERVICE") ?? ImageUpload.Service;
         ImageUpload.ApiKey = E("IMAGEUPLOAD__APIKEY") ?? ImageUpload.ApiKey;

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -270,12 +271,41 @@ public sealed class SettingsForm : Form
     }
 
     // ---------- Recursos ----------
+
+    /// <summary>Raiz dos caches do bundle web (um subdiretório por build).</summary>
+    private static string WebUiCacheRoot => Path.Combine(Path.GetTempPath(), "AiShot.webui");
+
+    /// <summary>
+    /// Chave do cache: muda a cada build -> invalida o cache quando o bundle web
+    /// muda; reutiliza entre aberturas do mesmo build.
+    /// </summary>
+    private static string WebUiCacheKey =>
+        typeof(SettingsForm).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+
+    /// <summary>
+    /// Remove os caches de builds anteriores. Como a chave muda a cada build,
+    /// cada atualização do app abandonaria um diretório para sempre.
+    /// </summary>
+    public static void CleanupStaleWebUiCaches()
+    {
+        try
+        {
+            if (!Directory.Exists(WebUiCacheRoot)) return;
+            var current = WebUiCacheKey;
+            foreach (var dir in Directory.EnumerateDirectories(WebUiCacheRoot))
+            {
+                if (string.Equals(Path.GetFileName(dir), current, StringComparison.OrdinalIgnoreCase))
+                    continue; // o cache em uso
+                try { Directory.Delete(dir, recursive: true); }
+                catch (Exception ex) { Debug.WriteLine($"CleanupStaleWebUiCaches: não removeu '{dir}': {ex.Message}"); }
+            }
+        }
+        catch (Exception ex) { Debug.WriteLine($"CleanupStaleWebUiCaches falhou: {ex.Message}"); }
+    }
+
     private static string ExtractWebUI()
     {
-        // Chave por ModuleVersionId: muda a cada build -> invalida o cache
-        // quando o bundle web muda; reutiliza entre aberturas do mesmo build.
-        var key = typeof(SettingsForm).Assembly.ManifestModule.ModuleVersionId.ToString("N");
-        var dir = Path.Combine(Path.GetTempPath(), "AiShot.webui", key);
+        var dir = Path.Combine(WebUiCacheRoot, WebUiCacheKey);
         if (File.Exists(Path.Combine(dir, "index.html"))) return dir; // cache
 
         var asm = Assembly.GetExecutingAssembly();
