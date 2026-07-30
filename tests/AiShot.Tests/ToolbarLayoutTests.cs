@@ -100,7 +100,7 @@ public class ToolbarLayoutTests
         var layout = Calcular(new Rectangle(800, 400, 300, 200));
 
         Assert.Equal(
-            new[] { "pen", "arrow", "line", "rect", "ellipse", "text", "color", "thickness", "undo" },
+            new[] { "pen", "arrow", "line", "rect", "ellipse", "text", "color", "thickness", "undo", "redo" },
             layout.SideButtons.Select(b => b.Id));
     }
 

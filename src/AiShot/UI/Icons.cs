@@ -56,6 +56,7 @@ public static class Icons
     public static readonly string Text = G("e48a");        // text-t
     public static readonly string Palette = G("e6c8");
     public static readonly string Undo = G("e038");        // arrow-counter-clockwise
+    public static readonly string Redo = G("e036");        // arrow-clockwise
     public static readonly string Cloud = G("e1ae");       // cloud-arrow-up
     public static readonly string Upload = G("e4c0");      // upload-simple
     public static readonly string Paint = G("e6f0");       // paint-brush
@@ -66,7 +67,7 @@ public static class Icons
     public static readonly string Sparkle = G("e6a2");
     public static readonly string Close = G("e4f6");       // x
     public static readonly string Send = G("e396");        // paper-plane-right
-    public static readonly string Spinner = G("e036");     // arrow-clockwise
+    public static readonly string Spinner = Redo;          // mesmo glifo: arrow-clockwise
 
     private static string G(string hex) => char.ConvertFromUtf32(Convert.ToInt32(hex, 16));
 }
