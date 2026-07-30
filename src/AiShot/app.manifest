@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="AiShot.app"/>
-  <application xmlns="urn:schemas-microsoft-com:asm.v3">
-    <windowsSettings>
-      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
-      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/PM</dpiAware>
-    </windowsSettings>
-  </application>
+
+  <!--
+    A configuração de DPI não vive mais aqui: é declarada em
+    <ApplicationHighDpiMode> no AiShot.csproj, que o WinForms aplica na
+    inicialização. Manter as duas fontes disparava o aviso WFO0003 e deixava
+    dois lugares para consultar quando o comportamento em tela mudasse.
+  -->
 </assembly>

@@ -13,6 +13,9 @@
     <RootNamespace>AiShot</RootNamespace>
     <!-- Definida em Directory.Build.props, na raiz do repositório. -->
     <Version>$(AiShotVersion)</Version>
+    <!-- Fonte única da configuração de DPI: substitui o que estava no
+         app.manifest e a chamada a Application.SetHighDpiMode. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
   <!-- Expõe os tipos internos ao projeto de testes: SelectionGeometry,
@@ -39,6 +42,18 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
   </ItemGroup>
+
+  <!--
+    O pacote do WebView2 traz a variante WPF junto da WinForms. O aplicativo usa
+    apenas a WinForms, e a WPF referencia WindowsBase 5.0 enquanto o runtime
+    resolve a 4.0 — conflito que gerava MSB3277 em toda compilação. Remover a
+    referência não usada resolve a causa em vez de silenciar o aviso.
+  -->
+  <Target Name="RemoverWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
 
   <!-- Rebuild do bundle web quando o fonte muda (incremental) -->
   <Target Name="BuildWebUI" BeforeTargets="BeforeBuild"

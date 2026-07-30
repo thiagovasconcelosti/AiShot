@@ -13,7 +13,7 @@ namespace AiShot.Tests;
 /// um teste vaza para o <c>Load</c> de outro e a falha aparece longe da causa.
 /// </remarks>
 [Collection("ambiente")]
-public class AppConfigTests : IDisposable
+public sealed class AppConfigTests : IDisposable
 {
     private readonly string _pasta;
     private readonly string _caminho;

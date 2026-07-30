@@ -15,13 +15,23 @@ public sealed class TrayAppContext : ApplicationContext
 {
     private readonly NotifyIcon _tray;
     private readonly GlobalHotKey _hotKey;
-    // Sem timeout global: cada operação define o seu (via HttpUtil.Timeout).
-    private readonly HttpClient _http = new() { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+    private readonly HttpClient _http = HttpClientFactory.Create();
     private AppConfig _cfg;
     private AppHost _host;
     private CaptureOverlay? _overlay;
     private readonly MessageWindow _msgWindow;
+
+    /// <summary>
+    /// Referência ao diálogo de Configurações enquanto ele está aberto, usada
+    /// apenas para trazê-lo ao foco. O dono é a instrução <c>using</c> em
+    /// <see cref="OpenSettings"/>, que o descarta ao fechar — este campo é um
+    /// apelido temporário e descartá-lo aqui seria descarte em duplicidade.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Usage", "CA2213:Campos descartáveis devem ser descartados",
+        Justification = "Apelido de uma variável using local; o descarte é feito por OpenSettings.")]
     private SettingsForm? _settingsForm;
+
     private bool _settingsOpen;
 
     public TrayAppContext()
@@ -186,11 +196,35 @@ public sealed class TrayAppContext : ApplicationContext
 
     private void ExitApp()
     {
-        _hotKey.Dispose();
-        _msgWindow.Dispose();
-        _tray.Visible = false;
-        _tray.Dispose();
-        _http.Dispose();
+        Dispose(true);
         ExitThread();
     }
+
+    /// <summary>
+    /// Libera os recursos do contexto. Sobrescrito porque o
+    /// <see cref="ApplicationContext"/> é descartável e pode ser encerrado por
+    /// caminhos que não passam pelo item "Sair" do menu — antes, a liberação
+    /// vivia só ali e o overlay ativo nunca era descartado.
+    /// </summary>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !_descartado)
+        {
+            _descartado = true;
+
+            _hotKey.HookRecovered -= OnHookRecovered;
+            _hotKey.Dispose();
+            _msgWindow.Dispose();
+
+            _overlay?.Dispose();
+            _overlay = null;
+
+            _tray.Visible = false;
+            _tray.Dispose();
+            _http.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
+    private bool _descartado;
 }

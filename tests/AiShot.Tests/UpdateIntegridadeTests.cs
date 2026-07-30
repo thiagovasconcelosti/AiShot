@@ -14,7 +14,7 @@ namespace AiShot.Tests;
 /// decide entre executar e abortar um binário, e testá-lo indiretamente exigiria
 /// um servidor HTTP num host do GitHub.
 /// </remarks>
-public class UpdateIntegridadeTests : IDisposable
+public sealed class UpdateIntegridadeTests : IDisposable
 {
     private readonly string _pasta;
 

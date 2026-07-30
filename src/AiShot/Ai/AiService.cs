@@ -21,6 +21,16 @@ public sealed class AiService : IAiService
 
     // ---------- Helpers compartilhados ----------
 
+    // Limites de saída por chamada.
+    //
+    // Precisam de folga além do tamanho da resposta esperada: em modelos com
+    // raciocínio, o limite cobre o raciocínio E o texto final, então um valor
+    // ajustado à resposta faz o modelo gastar a cota pensando e devolver um
+    // texto cortado ao meio. A folga custa nada quando não é usada — a cobrança
+    // é pelos tokens gerados, não pelo teto.
+    private const int TokensDaDescricaoDeImagem = 4096;
+    private const int TokensDaResposta = 8192;
+
     /// <summary>Roda a IA de visão (se ativa) e devolve a descrição da imagem, ou null.</summary>
     private async Task<string?> DescribeAsync(byte[] imagePng, CancellationToken ct)
     {
@@ -31,7 +41,7 @@ public sealed class AiService : IAiService
         var req = new AiRequest(
             "Descreva objetivamente o conteúdo desta imagem em detalhes (texto, elementos visuais, cores, layout).",
             imagePng: imagePng,
-            maxTokens: 1024);
+            maxTokens: TokensDaDescricaoDeImagem);
         var resp = await provider.CompleteAsync(req, ct).ConfigureAwait(false);
         return resp.Text;
     }
@@ -108,7 +118,7 @@ public sealed class AiService : IAiService
                 messages = _history.Select(m => m.ImagePng is null ? m : m with { ImagePng = null }).ToArray();
             }
 
-            var req = new AiRequest(messages, systemPrompt, MaxTokens: 1500);
+            var req = new AiRequest(messages, systemPrompt, MaxTokens: TokensDaResposta);
             var resp = await _owner.CompleteWithFallbackAsync(req, ct).ConfigureAwait(false);
 
             _history.Add(new ChatMessage("assistant", resp.Text));

@@ -8,8 +8,8 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        // Aplica ApplicationHighDpiMode e demais propriedades do csproj.
         ApplicationConfiguration.Initialize();
-        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
 
         // Modo de verificação de UI: abre só a tela de Configurações.
         if (Environment.GetCommandLineArgs().Contains("--settings"))
