@@ -100,7 +100,7 @@ public class ToolbarLayoutTests
         var layout = Calcular(new Rectangle(800, 400, 300, 200));
 
         Assert.Equal(
-            new[] { "pen", "arrow", "line", "rect", "ellipse", "text", "color", "thickness", "undo", "redo" },
+            new[] { "pen", "arrow", "line", "rect", "ellipse", "text", "blur", "step", "color", "thickness", "undo", "redo" },
             layout.SideButtons.Select(b => b.Id));
     }
 
@@ -154,6 +154,8 @@ public class ToolbarLayoutTests
     [InlineData("Rect", "rect")]
     [InlineData("Ellipse", "ellipse")]
     [InlineData("Text", "text")]
+    [InlineData("Blur", "blur")]
+    [InlineData("Step", "step")]
     public void Compute_MarcaComoAtivoApenasOBotaoDaFerramentaEmUso(string ferramenta, string idEsperado)
     {
         var layout = ToolbarLayout.Compute(

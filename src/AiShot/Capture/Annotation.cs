@@ -3,7 +3,7 @@ using System.Drawing;
 namespace AiShot.Capture;
 
 /// <summary>Ferramenta de anotação ativa.</summary>
-internal enum Tool { None, Pen, Arrow, Line, Rect, Ellipse, Text }
+internal enum Tool { None, Pen, Arrow, Line, Rect, Ellipse, Text, Blur, Step }
 
 /// <summary>Alça de redimensionamento/movimento da seleção.</summary>
 internal enum ResizeHandle { None, TL, T, TR, R, BR, B, BL, L, Move }
@@ -17,6 +17,7 @@ internal sealed class Shape
     public Point A, B;
     public List<Point>? Points;   // pen (traço livre)
     public string? TextValue;     // texto
+    public int StepNumber;        // numeração de passos: o número exibido
 }
 
 /// <summary>Botão de ícone numa toolbar (calculado por frame).</summary>

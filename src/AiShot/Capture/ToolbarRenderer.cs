@@ -36,6 +36,14 @@ internal static class ToolbarRenderer
             {
                 DrawThicknessGlyph(g, b.Rect, b.Active ? Color.Black : Theme.Text);
             }
+            else if (b.Id == "blur")
+            {
+                DrawBlurGlyph(g, b.Rect, b.Active ? Color.Black : Theme.Text);
+            }
+            else if (b.Id == "step")
+            {
+                DrawStepGlyph(g, b.Rect, b.Active ? Color.Black : Theme.Text);
+            }
         }
 
         Theme.DrawPanel(g, layout.BottomPanel);
@@ -78,6 +86,70 @@ internal static class ToolbarRenderer
             g.FillRectangle(pincel, centroX - larguras[i] / 2, y, larguras[i], alturas[i]);
             y += alturas[i] + gap;
         }
+    }
+
+    /// <summary>
+    /// Ícone do borrão: uma grade de blocos, alguns preenchidos — a leitura
+    /// visual do que a ferramenta faz com os pixels.
+    /// </summary>
+    private static void DrawBlurGlyph(Graphics g, Rectangle destino, Color cor)
+    {
+        var suavizacaoAnterior = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.None;
+        try
+        {
+            const int colunas = 4, linhas = 4, lado = 4, gap = 1;
+            int larguraTotal = colunas * lado + (colunas - 1) * gap;
+            int alturaTotal = linhas * lado + (linhas - 1) * gap;
+            int x0 = destino.X + (destino.Width - larguraTotal) / 2;
+            int y0 = destino.Y + (destino.Height - alturaTotal) / 2;
+
+            // Padrão xadrez irregular: sugere blocos de cor sem virar um tabuleiro.
+            bool[,] preenchido =
+            {
+                { true, false, true, true },
+                { false, true, true, false },
+                { true, true, false, true },
+                { true, false, true, false },
+            };
+
+            using var forte = new SolidBrush(cor);
+            using var fraco = new SolidBrush(Color.FromArgb(90, cor));
+            for (int l = 0; l < linhas; l++)
+                for (int c = 0; c < colunas; c++)
+                    g.FillRectangle(
+                        preenchido[l, c] ? forte : fraco,
+                        x0 + c * (lado + gap), y0 + l * (lado + gap), lado, lado);
+        }
+        finally { g.SmoothingMode = suavizacaoAnterior; }
+    }
+
+    /// <summary>Ícone da numeração: um círculo com o algarismo 1.</summary>
+    private static void DrawStepGlyph(Graphics g, Rectangle destino, Color cor)
+    {
+        var suavizacaoAnterior = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        try
+        {
+            const int raio = 9;
+            var circulo = new Rectangle(
+                destino.X + destino.Width / 2 - raio,
+                destino.Y + destino.Height / 2 - raio,
+                raio * 2, raio * 2);
+
+            using (var contorno = new Pen(cor, 1.6f))
+                g.DrawEllipse(contorno, circulo);
+
+            using var fonte = new Font("Segoe UI", raio, FontStyle.Bold, GraphicsUnit.Pixel);
+            using var pincel = new SolidBrush(cor);
+            using var centralizado = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+            };
+            g.DrawString("1", fonte, pincel, circulo, centralizado);
+        }
+        finally { g.SmoothingMode = suavizacaoAnterior; }
     }
 
     /// <summary>

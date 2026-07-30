@@ -18,12 +18,16 @@ internal static class ToolbarLayout
 {
     private static readonly (string glyph, string id, string tip, Tool tool)[] Tools =
     {
-        (Icons.Pencil, "pen", "Lápis", Tool.Pen),
-        (Icons.Arrow, "arrow", "Seta", Tool.Arrow),
-        (Icons.Line, "line", "Linha", Tool.Line),
-        (Icons.Rectangle, "rect", "Retângulo", Tool.Rect),
-        (Icons.Circle, "ellipse", "Elipse", Tool.Ellipse),
-        (Icons.Text, "text", "Texto", Tool.Text),
+        (Icons.Pencil, "pen", "Lápis (L)", Tool.Pen),
+        (Icons.Arrow, "arrow", "Seta (S)", Tool.Arrow),
+        (Icons.Line, "line", "Linha (R)", Tool.Line),
+        (Icons.Rectangle, "rect", "Retângulo (Q)", Tool.Rect),
+        (Icons.Circle, "ellipse", "Elipse (E)", Tool.Ellipse),
+        (Icons.Text, "text", "Texto (T)", Tool.Text),
+        // Glifos desenhados pelo ToolbarRenderer: o conjunto de ícones embutido
+        // não traz um símbolo próprio para pixelização nem para numeração.
+        ("", "blur", "Borrão (B)", Tool.Blur),
+        ("", "step", "Numerar passos (N)", Tool.Step),
         (Icons.Palette, "color", "Cor", Tool.None),
         ("", "thickness", "Espessura", Tool.None),
         (Icons.Undo, "undo", "Desfazer (Ctrl+Z)", Tool.None),

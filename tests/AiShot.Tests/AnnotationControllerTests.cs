@@ -302,6 +302,146 @@ public class AnnotationControllerTests
         Assert.False(c.CanRedo);
     }
 
+    // ---------- Atalhos de teclado ----------
+
+    [Theory]
+    [InlineData('L', "Pen")]
+    [InlineData('S', "Arrow")]
+    [InlineData('R', "Line")]
+    [InlineData('Q', "Rect")]
+    [InlineData('E', "Ellipse")]
+    [InlineData('T', "Text")]
+    [InlineData('B', "Blur")]
+    [InlineData('N', "Step")]
+    public void ApplyShortcut_AtivaAFerramentaCorrespondente(char tecla, string esperada)
+    {
+        var c = Novo();
+
+        Assert.True(c.ApplyShortcut(tecla));
+        Assert.Equal(Enum.Parse<Tool>(esperada), c.Tool);
+    }
+
+    [Fact]
+    public void ApplyShortcut_NaoDiferenciaMaiusculaDeMinuscula()
+    {
+        var c = Novo();
+        c.ApplyShortcut('b');
+
+        Assert.Equal(Tool.Blur, c.Tool);
+    }
+
+    [Fact]
+    public void ApplyShortcut_ComATeclaDaFerramentaAtiva_Desativa()
+    {
+        var c = Novo();
+        c.ApplyShortcut('B');
+        c.ApplyShortcut('B');
+
+        Assert.Equal(Tool.None, c.Tool);
+    }
+
+    [Theory]
+    [InlineData('Z')]
+    [InlineData('9')]
+    [InlineData(' ')]
+    public void ApplyShortcut_ComTeclaSemAtalho_NaoAlteraNada(char tecla)
+    {
+        var c = Novo();
+        c.ToggleTool(Tool.Rect);
+
+        Assert.False(c.ApplyShortcut(tecla));
+        Assert.Equal(Tool.Rect, c.Tool);
+    }
+
+    [Fact]
+    public void Atalhos_NaoSeRepetemEntreFerramentas()
+    {
+        // Duas ferramentas na mesma tecla tornariam uma delas inalcançável.
+        var c = Novo();
+        var alcancadas = new List<Tool>();
+
+        foreach (var tecla in "lsrqetbn")
+        {
+            c.ApplyShortcut(tecla);
+            alcancadas.Add(c.Tool);
+            c.ApplyShortcut(tecla); // desativa para o próximo
+        }
+
+        Assert.Equal(alcancadas.Count, alcancadas.Distinct().Count());
+        Assert.DoesNotContain(Tool.None, alcancadas);
+    }
+
+    // ---------- Numeração de passos ----------
+
+    [Fact]
+    public void NextStepNumber_ComeçaEmUm() =>
+        Assert.Equal(1, Novo().NextStepNumber);
+
+    [Fact]
+    public void Passos_RecebemNumerosEmSequencia()
+    {
+        var c = Novo();
+        c.ToggleTool(Tool.Step);
+
+        for (int i = 0; i < 3; i++)
+        {
+            c.BeginDraw(new Point(10 * i, 10));
+            c.EndDraw();
+        }
+
+        Assert.Equal(new[] { 1, 2, 3 }, c.Shapes.Select(s => s.StepNumber));
+    }
+
+    [Fact]
+    public void Passo_DesfeitoDevolveONumeroASequencia()
+    {
+        var c = Novo();
+        c.ToggleTool(Tool.Step);
+        c.BeginDraw(new Point(0, 0)); c.EndDraw();
+        c.BeginDraw(new Point(10, 0)); c.EndDraw();
+
+        c.Undo();
+
+        Assert.Equal(2, c.NextStepNumber);
+    }
+
+    [Fact]
+    public void NextStepNumber_IgnoraFormasDeOutrasFerramentas()
+    {
+        var c = Novo();
+        Desenhar(c, Tool.Rect);
+        Desenhar(c, Tool.Ellipse);
+
+        Assert.Equal(1, c.NextStepNumber);
+    }
+
+    // ---------- Borrão ----------
+
+    [Fact]
+    public void Borrao_ComportaSeComoUmaFormaDeArraste()
+    {
+        var c = Novo();
+        c.ToggleTool(Tool.Blur);
+
+        c.BeginDraw(new Point(10, 10));
+        c.ContinueDraw(new Point(80, 60));
+
+        Assert.NotNull(c.InProgress);
+        Assert.True(c.EndDraw());
+        Assert.Equal(Tool.Blur, Assert.Single(c.Shapes).Tool);
+    }
+
+    [Fact]
+    public void Borrao_ComCliqueSemArraste_Descarta()
+    {
+        var c = Novo();
+        c.ToggleTool(Tool.Blur);
+        c.BeginDraw(new Point(10, 10));
+
+        Assert.False(c.EndDraw());
+        Assert.Empty(c.Shapes);
+    }
+
     // ---------- Formas prontas ----------
 
     [Fact]
