@@ -19,12 +19,18 @@ public sealed class TrayAppContext : ApplicationContext
     private readonly HttpClient _http = new() { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
     private AppConfig _cfg;
     private AppHost _host;
-    private bool _capturing;
+    private CaptureOverlay? _overlay;
+    private readonly MessageWindow _msgWindow;
+    private SettingsForm? _settingsForm;
+    private bool _settingsOpen;
 
     public TrayAppContext()
     {
         _cfg = AppConfig.Load();
         _host = new AppHost(_cfg, _http);
+
+        // Recebe o aviso de uma segunda instância pedindo para mostrar a UI.
+        _msgWindow = new MessageWindow(OpenSettings);
 
         _tray = new NotifyIcon
         {
@@ -109,40 +115,68 @@ public sealed class TrayAppContext : ApplicationContext
 
     private void StartCapture()
     {
-        if (_capturing) return;
-        _capturing = true;
+        // Show() não bloqueia, então uma flag zerada no finally não protegeria
+        // nada: a guarda é a própria referência do overlay, viva até ele fechar.
+        if (_overlay is not null && !_overlay.IsDisposed)
+        {
+            _overlay.Activate();
+            return;
+        }
+
         try
         {
             var overlay = new CaptureOverlay(_host);
+            overlay.FormClosed += (s, _) =>
+            {
+                if (ReferenceEquals(_overlay, s)) _overlay = null;
+            };
+            _overlay = overlay;
             overlay.Show();
             overlay.Activate();
         }
         catch (Exception ex)
         {
+            _overlay = null;
             MessageBox.Show(ex.Message, "AiShot — erro na captura",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        finally
-        {
-            _capturing = false;
         }
     }
 
     private void OpenSettings()
     {
-        using var form = new SettingsForm(_cfg, _hotKey, _http);
-        if (form.ShowDialog() == DialogResult.OK)
+        // ShowDialog é modal nesta thread, mas OpenSettings também é acionado
+        // por mensagem de janela (segunda instância): sem a guarda, dois
+        // diálogos poderiam ser empilhados.
+        if (_settingsOpen)
         {
-            // Recarrega config + recria host e re-registra atalho.
-            _cfg = AppConfig.Load();
-            _host = new AppHost(_cfg, _http);
-            RegisterHotKey();
+            _settingsForm?.Activate();
+            return;
+        }
+
+        _settingsOpen = true;
+        try
+        {
+            using var form = new SettingsForm(_cfg, _hotKey, _http);
+            _settingsForm = form;
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                // Recarrega config + recria host e re-registra atalho.
+                _cfg = AppConfig.Load();
+                _host = new AppHost(_cfg, _http);
+                RegisterHotKey();
+            }
+        }
+        finally
+        {
+            _settingsForm = null;
+            _settingsOpen = false;
         }
     }
 
     private void ExitApp()
     {
         _hotKey.Dispose();
+        _msgWindow.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _http.Dispose();

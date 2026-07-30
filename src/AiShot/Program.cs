@@ -19,6 +19,11 @@ internal static class Program
             return;
         }
 
+        // Instância única: duas cópias registrariam dois hooks globais na mesma
+        // tecla e dois ícones na bandeja. A que já roda é trazida ao foco.
+        using var instance = SingleInstance.TryAcquire();
+        if (instance is null) return;
+
         // Rede de segurança para exceções não tratadas (async void, threads).
         Application.ThreadException += (_, e) => ShowFatal(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => ShowFatal(e.ExceptionObject as Exception);
