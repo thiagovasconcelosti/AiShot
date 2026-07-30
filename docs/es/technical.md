@@ -69,6 +69,19 @@ Cada ajuste puede sobrescribirse con una variable de entorno con prefijo `AISHOT
 | `AISHOT_HISTORY__ENABLED` | `true`/`false` (desactivado por defecto) |
 | `AISHOT_HISTORY__MAXITEMS` / `__MAXSIZEMB` | límites de retención |
 | `AISHOT_HOTKEY` | p. ej. `PrintScreen`, `Ctrl+Alt+S` |
+| `AISHOT_LANGUAGE` | `auto`, `pt`, `en` o `es` |
+
+## Idioma de la interfaz
+
+Tres capas, todas siguiendo la misma configuración:
+
+- **WinForms** (overlay, menú de la bandeja, cuadros de mensaje) lee recursos `.resx`. `Resources/Strings.resx` es el idioma de origen (portugués); `Strings.en.resx` y `Strings.es.resx` se convierten en ensamblados satélite. Un idioma sin traducción cae en el archivo neutro.
+- **Interfaz web** (Configuración) usa un diccionario en `web/src/i18n.ts`, indexado por la cultura que el lado C# ya resolvió y envía en el mensaje de configuración. La página nunca elige el idioma por su cuenta — si lo hiciera, la ventana y la bandeja podrían divergir.
+- **Instalador** declara `[Languages]` para los tres, con sus propios textos en `[CustomMessages]`.
+
+`Language` es `auto` por defecto (sigue al sistema). Cambiarlo en Configuración reconstruye el menú de la bandeja al instante, así que el nuevo idioma aparece sin reiniciar.
+
+Los mensajes de error usan marcadores (`{0}`) en lugar de concatenar texto fijo con el detalle de la excepción — concatenar dejaría media traducción y media en portugués. Una prueba falla si alguna traducción pierde el marcador.
 
 ## Historial de capturas
 
@@ -155,6 +168,7 @@ src/AiShot/
   Config/ (AppConfig, SecretProtector)
   History/ (CaptureHistory)
   Ocr/ (TextRecognizer)
+  Resources/ (Strings.resx, Idioma)
   HotKey/ (GlobalHotKey)
   Settings/ (SettingsForm)
   UI/ (Theme, Icons), Assets/ (Phosphor.ttf, app.ico)

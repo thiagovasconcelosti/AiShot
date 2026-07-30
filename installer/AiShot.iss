@@ -35,12 +35,47 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
 
+; O idioma do instalador segue o do Windows; o seletor so aparece quando o
+; sistema esta num idioma que nao esta nesta lista. O ingles vem primeiro por
+; ser o padrao do Inno quando nada corresponde.
 [Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+
+; Textos proprios do instalador, por idioma. Sem prefixo de idioma valeriam
+; para todos — que era o caso antes, com tudo em portugues.
+[CustomMessages]
+english.DesktopIcon=Create a desktop shortcut
+english.Shortcuts=Shortcuts:
+english.RunAtStartup=Start AiShot with Windows
+english.Startup=Startup:
+english.UninstallShortcut=Uninstall AiShot
+english.LaunchNow=Launch AiShot now
+english.RemoveHistory=Also remove the capture history stored on disk?%n%nThese are images of what was on your screen. If you choose No, they remain in:%n%1
+english.RemoveConfig=Also remove the saved settings and API keys?%n%nChoose No to keep your settings if you plan to reinstall AiShot.
+
+brazilianportuguese.DesktopIcon=Criar atalho na área de trabalho
+brazilianportuguese.Shortcuts=Atalhos:
+brazilianportuguese.RunAtStartup=Iniciar o AiShot com o Windows
+brazilianportuguese.Startup=Inicialização:
+brazilianportuguese.UninstallShortcut=Desinstalar AiShot
+brazilianportuguese.LaunchNow=Iniciar o AiShot agora
+brazilianportuguese.RemoveHistory=Remover também o histórico de capturas guardado em disco?%n%nSão imagens do que estava na sua tela. Se você escolher Não, elas permanecem em:%n%1
+brazilianportuguese.RemoveConfig=Remover também as configurações e as chaves de API salvas?%n%nEscolha Não para manter suas configurações caso pretenda reinstalar o AiShot.
+
+spanish.DesktopIcon=Crear acceso directo en el escritorio
+spanish.Shortcuts=Accesos directos:
+spanish.RunAtStartup=Iniciar AiShot con Windows
+spanish.Startup=Inicio:
+spanish.UninstallShortcut=Desinstalar AiShot
+spanish.LaunchNow=Iniciar AiShot ahora
+spanish.RemoveHistory=¿Eliminar también el historial de capturas guardado en disco?%n%nSon imágenes de lo que había en tu pantalla. Si eliges No, permanecen en:%n%1
+spanish.RemoveConfig=¿Eliminar también la configuración y las claves de API guardadas?%n%nElige No para conservar tu configuración si piensas reinstalar AiShot.
 
 [Tasks]
-Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos:"
-Name: "startup"; Description: "Iniciar o AiShot com o Windows"; GroupDescription: "Inicialização:"
+Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:Shortcuts}"
+Name: "startup"; Description: "{cm:RunAtStartup}"; GroupDescription: "{cm:Startup}"
 
 [Files]
 Source: "..\dist\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -53,7 +88,7 @@ Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
-Name: "{group}\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
+Name: "{group}\{cm:UninstallShortcut}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
@@ -61,7 +96,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
   ValueName: "AiShot"; ValueData: """{app}\{#AppExe}"""; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Iniciar o {#AppName} agora"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
 
 ; Caches e perfis recriados na proxima execucao: saem sempre, sem perguntar.
 ; A configuracao e o historico ficam de fora daqui — sao dados do usuario, e a
@@ -103,18 +138,14 @@ begin
 
   if DirExists(Historico) then
   begin
-    if MsgBox('Remover tambem o historico de capturas guardado em disco?'#13#10#13#10
-              + 'Sao imagens do que estava na sua tela. Se voce escolher Nao, elas'#13#10
-              + 'permanecem em:'#13#10 + Historico,
+    if MsgBox(FmtMessage(CustomMessage('RemoveHistory'), [Historico]),
               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
       RemoverPasta(Historico);
   end;
 
   if DirExists(Config) then
   begin
-    if MsgBox('Remover tambem as configuracoes e as chaves de API salvas?'#13#10#13#10
-              + 'Escolha Nao para manter suas configuracoes caso pretenda'#13#10
-              + 'reinstalar o AiShot.',
+    if MsgBox(CustomMessage('RemoveConfig'),
               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
       RemoverPasta(Config);
   end;

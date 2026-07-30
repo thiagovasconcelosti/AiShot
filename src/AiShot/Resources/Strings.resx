@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Idioma-fonte do projeto: português. As traduções ficam em Strings.<cultura>.resx
+    e o .NET escolhe pela cultura corrente, caindo neste arquivo quando não há
+    tradução para o idioma do sistema.
+
+    Marcadores de posição: {0}, {1}… Mensagens de erro NUNCA concatenam texto
+    fixo com o detalhe da exceção — sem o marcador, a tradução ficaria pela
+    metade (metade traduzida, metade em português).
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Menu da bandeja -->
+  <data name="TrayCapture" xml:space="preserve">
+    <value>Capturar</value>
+  </data>
+  <data name="TraySettings" xml:space="preserve">
+    <value>Configurações…</value>
+  </data>
+  <data name="TrayStartWithWindows" xml:space="preserve">
+    <value>Iniciar com o Windows</value>
+  </data>
+  <data name="TrayHistory" xml:space="preserve">
+    <value>Histórico</value>
+  </data>
+  <data name="TrayHistoryEmpty" xml:space="preserve">
+    <value>(vazio)</value>
+  </data>
+  <data name="TrayHistoryOpenFolder" xml:space="preserve">
+    <value>Abrir pasta</value>
+  </data>
+  <data name="TrayHistoryClear" xml:space="preserve">
+    <value>Limpar histórico</value>
+  </data>
+  <data name="TrayExit" xml:space="preserve">
+    <value>Sair</value>
+  </data>
+
+  <!-- Ferramentas do overlay (a dica é também o nome anunciado pelo leitor de tela) -->
+  <data name="ToolPen" xml:space="preserve">
+    <value>Lápis (L)</value>
+  </data>
+  <data name="ToolArrow" xml:space="preserve">
+    <value>Seta (S)</value>
+  </data>
+  <data name="ToolLine" xml:space="preserve">
+    <value>Linha (R)</value>
+  </data>
+  <data name="ToolRect" xml:space="preserve">
+    <value>Retângulo (Q)</value>
+  </data>
+  <data name="ToolEllipse" xml:space="preserve">
+    <value>Elipse (E)</value>
+  </data>
+  <data name="ToolText" xml:space="preserve">
+    <value>Texto (T)</value>
+  </data>
+  <data name="ToolBlur" xml:space="preserve">
+    <value>Borrão (B)</value>
+  </data>
+  <data name="ToolStep" xml:space="preserve">
+    <value>Numerar passos (N)</value>
+  </data>
+  <data name="ToolColor" xml:space="preserve">
+    <value>Cor</value>
+  </data>
+  <data name="ToolThickness" xml:space="preserve">
+    <value>Espessura</value>
+  </data>
+  <data name="ToolUndo" xml:space="preserve">
+    <value>Desfazer (Ctrl+Z)</value>
+  </data>
+  <data name="ToolRedo" xml:space="preserve">
+    <value>Refazer (Ctrl+Y)</value>
+  </data>
+
+  <!-- Ações do overlay -->
+  <data name="ActionCopy" xml:space="preserve">
+    <value>Copiar</value>
+  </data>
+  <data name="ActionOcr" xml:space="preserve">
+    <value>Copiar texto da imagem</value>
+  </data>
+  <data name="ActionSave" xml:space="preserve">
+    <value>Salvar</value>
+  </data>
+  <data name="ActionPaint" xml:space="preserve">
+    <value>Abrir no Paint</value>
+  </data>
+  <data name="ActionUpload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="ActionShare" xml:space="preserve">
+    <value>Compartilhar</value>
+  </data>
+  <data name="ActionAskAi" xml:space="preserve">
+    <value>Perguntar à IA</value>
+  </data>
+  <data name="ActionClose" xml:space="preserve">
+    <value>Fechar</value>
+  </data>
+
+  <!-- Mensagens transitórias do overlay -->
+  <data name="FlashCopied" xml:space="preserve">
+    <value>Copiado</value>
+  </data>
+  <data name="FlashUploading" xml:space="preserve">
+    <value>Enviando…</value>
+  </data>
+  <data name="FlashReadingText" xml:space="preserve">
+    <value>Lendo o texto…</value>
+  </data>
+  <data name="FlashTextCopied" xml:space="preserve">
+    <value>Texto copiado</value>
+  </data>
+  <data name="FlashTextCopiedLines" xml:space="preserve">
+    <value>Texto copiado ({0} linhas)</value>
+    <comment>{0}: quantidade de linhas reconhecidas</comment>
+  </data>
+  <data name="FlashNoTextFound" xml:space="preserve">
+    <value>Nenhum texto reconhecido na imagem</value>
+  </data>
+  <data name="FlashUrlCopied" xml:space="preserve">
+    <value>URL copiada: {0}</value>
+    <comment>{0}: a URL da imagem enviada</comment>
+  </data>
+  <data name="FlashOpenedInBrowser" xml:space="preserve">
+    <value>Aberto no navegador (URL copiada)</value>
+  </data>
+  <data name="FlashInvalidUrl" xml:space="preserve">
+    <value>URL inválida; não foi aberta. (copiada)</value>
+  </data>
+
+  <!-- Falhas do overlay. O detalhe da exceção entra em {0}. -->
+  <data name="ErrorClipboardUnavailable" xml:space="preserve">
+    <value>Área de transferência indisponível: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorSaveFailed" xml:space="preserve">
+    <value>Falha ao salvar: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorPaintFailed" xml:space="preserve">
+    <value>Falha ao abrir o Paint: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorUploadFailed" xml:space="preserve">
+    <value>Falha no envio: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorShareFailed" xml:space="preserve">
+    <value>Falha ao compartilhar: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorOcrFailed" xml:space="preserve">
+    <value>Falha ao ler o texto: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+
+  <!-- Chat -->
+  <data name="ChatTitle" xml:space="preserve">
+    <value>Perguntar à IA</value>
+  </data>
+  <data name="ChatAnswerCopied" xml:space="preserve">
+    <value>Resposta copiada</value>
+  </data>
+  <data name="ChatError" xml:space="preserve">
+    <value>Erro: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+
+  <!-- Caixas de mensagem e balões da bandeja -->
+  <data name="AppName" xml:space="preserve">
+    <value>AiShot</value>
+    <comment>Nome do produto; não traduzir</comment>
+  </data>
+  <data name="TitleCaptureError" xml:space="preserve">
+    <value>AiShot — erro na captura</value>
+  </data>
+  <data name="TitleUnexpectedError" xml:space="preserve">
+    <value>AiShot — erro inesperado</value>
+  </data>
+  <data name="SettingsWindowTitle" xml:space="preserve">
+    <value>AiShot — Configurações</value>
+  </data>
+  <data name="ErrorSettingsUiFailed" xml:space="preserve">
+    <value>Falha ao carregar a interface: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorSettingsSaveFailed" xml:space="preserve">
+    <value>Não foi possível salvar as configurações: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="ErrorUpdateFailed" xml:space="preserve">
+    <value>Falha ao atualizar: {0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="HotKeyRegisterFailed" xml:space="preserve">
+    <value>Não foi possível registrar o atalho '{0}'. Pode estar em uso.</value>
+    <comment>{0}: combinação de teclas configurada</comment>
+  </data>
+  <data name="HotKeyRecovered" xml:space="preserve">
+    <value>O atalho '{0}' havia parado de responder e foi restabelecido.</value>
+    <comment>{0}: combinação de teclas configurada</comment>
+  </data>
+
+  <!-- Histórico de capturas -->
+  <data name="HistoryCaptureRestored" xml:space="preserve">
+    <value>Captura copiada para a área de transferência.</value>
+  </data>
+  <data name="ErrorHistoryRestoreFailed" xml:space="preserve">
+    <value>Não foi possível recuperar a captura.
+
+{0}</value>
+    <comment>{0}: detalhe do erro</comment>
+  </data>
+  <data name="HistoryClearConfirm" xml:space="preserve">
+    <value>Apagar todas as capturas guardadas no histórico?
+
+Esta ação não pode ser desfeita.</value>
+  </data>
+
+  <!-- Instalador / desinstalação (referência; o Inno Setup tem os próprios .isl) -->
+  <data name="StartupToggleFailed" xml:space="preserve">
+    <value>{0}</value>
+    <comment>{0}: detalhe do erro ao ligar/desligar o início automático</comment>
+  </data>
+</root>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Eye, EyeOff, X, Keyboard, Download, Loader2 } from "lucide-react"
 // History vem com alias: o nome colide com a interface History do DOM.
 import { bridge, type Config, type Endpoint, type Vision, type History as HistoryCfg } from "@/bridge"
+import { dict, format, LANGUAGE_OPTIONS } from "@/i18n"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -45,7 +46,12 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  if (!cfg) return <div className="p-6 text-muted-foreground">Carregando…</div>
+  // O idioma vem resolvido do C#, que já aplicou a escolha do usuário ou a
+  // cultura do sistema — a página não decide sozinha, senão a janela e a
+  // bandeja poderiam divergir.
+  const t = dict(cfg?.resolvedLanguage)
+
+  if (!cfg) return <div className="p-6 text-muted-foreground">{t.loading}</div>
 
   const set = (patch: Partial<Config>) => setCfg({ ...cfg, ...patch })
   const setAi = (patch: Partial<Config["ai"]>) => set({ ai: { ...cfg.ai, ...patch } })
@@ -61,14 +67,14 @@ export default function App() {
       >
         <img src="icon.png" alt="" className="h-8 w-8" draggable={false} />
         <div className="flex-1">
-          <h1 className="text-[15px] font-semibold leading-tight">Configurações</h1>
-          <p className="text-xs text-muted-foreground">Atalho, provedores de IA e upload</p>
+          <h1 className="text-[15px] font-semibold leading-tight">{t.headerTitle}</h1>
+          <p className="text-xs text-muted-foreground">{t.headerSubtitle}</p>
         </div>
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => bridge.cancel()}
           className="grid h-8 w-8 place-items-center rounded-md border border-border text-foreground/80 hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
-          aria-label="Fechar"
+          aria-label={t.close}
         >
           <X size={18} />
         </button>
@@ -79,17 +85,17 @@ export default function App() {
           <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3">
             <Download size={18} className="text-primary shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-semibold">Nova versão disponível!</p>
-              <p className="text-xs text-muted-foreground">Versão {update.version} — clique para atualizar automaticamente.</p>
+              <p className="text-sm font-semibold">{t.updateAvailable}</p>
+              <p className="text-xs text-muted-foreground">{format(t.updateHint, update.version)}</p>
             </div>
             <Button size="sm" disabled={updating} onClick={() => { setUpdating(true); bridge.startUpdate(update.url) }}>
-              {updating ? <><Loader2 size={15} className="animate-spin" /> Baixando…</> : "Atualizar"}
+              {updating ? <><Loader2 size={15} className="animate-spin" /> {t.updateDownloading}</> : t.updateButton}
             </Button>
           </div>
         )}
 
-        <Section title="Atalho" subtitle="Tecla global para capturar">
-          <Field label="Tecla">
+        <Section title={t.sectionShortcut} subtitle={t.sectionShortcutSubtitle}>
+          <Field label={t.fieldKey}>
             <HotkeyInput
               value={cfg.hotKey}
               onChange={(v) => set({ hotKey: v })}
@@ -99,51 +105,48 @@ export default function App() {
           </Field>
         </Section>
 
-        <Section title="IA principal" subtitle="Modelo usado para responder">
-          <Field label="Provider">
+        <Section title={t.sectionAi} subtitle={t.sectionAiSubtitle}>
+          <Field label={t.fieldProvider}>
             <ProviderSelect value={cfg.ai.provider} onChange={(v) => setAi({ provider: v })} options={PROVIDERS} />
           </Field>
-          <Field label="API Key"><Password value={cfg.ai.apiKey} onChange={(v) => setAi({ apiKey: v })} /></Field>
-          <Field label="Modelo"><Input value={cfg.ai.model} onChange={(e) => setAi({ model: e.target.value })} /></Field>
-          <Field label="Base URL"><Input value={cfg.ai.baseUrl} placeholder="opcional" onChange={(e) => setAi({ baseUrl: e.target.value })} /></Field>
+          <Field label={t.fieldApiKey}><Password value={cfg.ai.apiKey} onChange={(v) => setAi({ apiKey: v })} /></Field>
+          <Field label={t.fieldModel}><Input value={cfg.ai.model} onChange={(e) => setAi({ model: e.target.value })} /></Field>
+          <Field label={t.fieldBaseUrl}><Input value={cfg.ai.baseUrl} placeholder={t.optional} onChange={(e) => setAi({ baseUrl: e.target.value })} /></Field>
         </Section>
 
-        <Section title="IA de fallback" subtitle="Usada se a principal falhar">
-          <Field label="Provider">
+        <Section title={t.sectionFallback} subtitle={t.sectionFallbackSubtitle}>
+          <Field label={t.fieldProvider}>
             <ProviderSelect value={cfg.ai.fallback.provider} onChange={(v) => setFb({ provider: v })} options={PROVIDERS} />
           </Field>
-          <Field label="API Key"><Password value={cfg.ai.fallback.apiKey} onChange={(v) => setFb({ apiKey: v })} /></Field>
-          <Field label="Modelo"><Input value={cfg.ai.fallback.model} onChange={(e) => setFb({ model: e.target.value })} /></Field>
+          <Field label={t.fieldApiKey}><Password value={cfg.ai.fallback.apiKey} onChange={(v) => setFb({ apiKey: v })} /></Field>
+          <Field label={t.fieldModel}><Input value={cfg.ai.fallback.model} onChange={(e) => setFb({ model: e.target.value })} /></Field>
         </Section>
 
-        <Section title="IA de visão" subtitle="Descreve a imagem antes da IA principal">
-          <SwitchRow label="Ativar IA de visão" checked={cfg.ai.vision.enabled} onChange={(v) => setVis({ enabled: v })} />
-          <Field label="Provider">
+        <Section title={t.sectionVision} subtitle={t.sectionVisionSubtitle}>
+          <SwitchRow label={t.enableVision} checked={cfg.ai.vision.enabled} onChange={(v) => setVis({ enabled: v })} />
+          <Field label={t.fieldProvider}>
             <ProviderSelect value={cfg.ai.vision.provider} onChange={(v) => setVis({ provider: v })} options={PROVIDERS} />
           </Field>
-          <Field label="API Key"><Password value={cfg.ai.vision.apiKey} onChange={(v) => setVis({ apiKey: v })} /></Field>
-          <Field label="Modelo"><Input value={cfg.ai.vision.model} onChange={(e) => setVis({ model: e.target.value })} /></Field>
+          <Field label={t.fieldApiKey}><Password value={cfg.ai.vision.apiKey} onChange={(v) => setVis({ apiKey: v })} /></Field>
+          <Field label={t.fieldModel}><Input value={cfg.ai.vision.model} onChange={(e) => setVis({ model: e.target.value })} /></Field>
         </Section>
 
-        <Section title="Upload de imagem" subtitle="Serviço de hospedagem do print">
-          <Field label="Serviço">
+        <Section title={t.sectionUpload} subtitle={t.sectionUploadSubtitle}>
+          <Field label={t.fieldService}>
             <ProviderSelect value={cfg.imageUpload.service} onChange={(v) => set({ imageUpload: { ...cfg.imageUpload, service: v } })} options={SERVICES} />
           </Field>
-          <Field label="API Key"><Password value={cfg.imageUpload.apiKey} onChange={(v) => set({ imageUpload: { ...cfg.imageUpload, apiKey: v } })} placeholder="opcional" /></Field>
+          <Field label={t.fieldApiKey}><Password value={cfg.imageUpload.apiKey} onChange={(v) => set({ imageUpload: { ...cfg.imageUpload, apiKey: v } })} placeholder={t.optional} /></Field>
         </Section>
 
-        <Section
-          title="Histórico de capturas"
-          subtitle="Guarda as últimas capturas em disco para recuperar pela bandeja"
-        >
+        <Section title={t.sectionHistory} subtitle={t.sectionHistorySubtitle}>
           <SwitchRow
-            label="Guardar histórico"
+            label={t.enableHistory}
             checked={cfg.history.enabled}
             onChange={(v) => setHist({ enabled: v })}
           />
           {cfg.history.enabled && (
             <>
-              <Field label="Máx. itens">
+              <Field label={t.fieldMaxItems}>
                 <NumberInput
                   value={cfg.history.maxItems}
                   min={1}
@@ -151,7 +154,7 @@ export default function App() {
                   onChange={(v) => setHist({ maxItems: v })}
                 />
               </Field>
-              <Field label="Máx. espaço">
+              <Field label={t.fieldMaxSize}>
                 <NumberInput
                   value={cfg.history.maxSizeMb}
                   min={1}
@@ -160,25 +163,33 @@ export default function App() {
                   onChange={(v) => setHist({ maxSizeMb: v })}
                 />
               </Field>
-              <p className="text-xs text-muted-foreground pt-1">
-                Capturas podem conter dados sensíveis. Elas ficam em disco até
-                serem substituídas pelos limites acima ou apagadas em
-                Histórico&nbsp;→&nbsp;Limpar, no menu da bandeja.
-              </p>
+              <p className="text-xs text-muted-foreground pt-1">{t.historyWarning}</p>
             </>
           )}
         </Section>
 
-        <Section title="Comportamento">
-          <SwitchRow label="Fechar ao copiar" checked={cfg.closeOnCopy} onChange={(v) => set({ closeOnCopy: v })} />
+        <Section title={t.sectionLanguage} subtitle={t.sectionLanguageSubtitle}>
+          <Field label={t.fieldLanguage}>
+            <ProviderSelect
+              value={cfg.language}
+              onChange={(v) => set({ language: v })}
+              options={LANGUAGE_OPTIONS.map((o) => o.value)}
+              labels={Object.fromEntries(LANGUAGE_OPTIONS.map((o) => [o.value, o.label]))}
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground pt-1">{t.languageRestartHint}</p>
+        </Section>
+
+        <Section title={t.sectionBehavior}>
+          <SwitchRow label={t.closeOnCopy} checked={cfg.closeOnCopy} onChange={(v) => set({ closeOnCopy: v })} />
         </Section>
       </main>
 
       <footer className="flex items-center justify-between px-5 py-3 border-t">
         <div className="flex items-center gap-2 text-xs">
-          <button onClick={() => bridge.openUrl("https://github.com/thiagovasconcelosti/AiShot")} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Repositório</button>
+          <button onClick={() => bridge.openUrl("https://github.com/thiagovasconcelosti/AiShot")} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">{t.repository}</button>
           <span className="text-muted-foreground">·</span>
-          <button onClick={() => bridge.openUrl("https://thiagovasconcelosti.github.io/AiShot/")} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">Documentação</button>
+          <button onClick={() => bridge.openUrl("https://thiagovasconcelosti.github.io/AiShot/")} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">{t.documentation}</button>
           {cfg.appVersion && (
             <>
               <span className="text-muted-foreground">·</span>
@@ -187,8 +198,8 @@ export default function App() {
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => bridge.cancel()}>Cancelar</Button>
-          <Button onClick={() => bridge.save(cfg)}>Salvar</Button>
+          <Button variant="secondary" onClick={() => bridge.cancel()}>{t.cancel}</Button>
+          <Button onClick={() => bridge.save(cfg)}>{t.save}</Button>
         </div>
       </footer>
 
@@ -206,8 +217,8 @@ export default function App() {
               </div>
             </div>
             <div className="text-center">
-              <p className="text-base font-semibold">Pressione a combinação de teclas</p>
-              <p className="mt-1 text-sm text-muted-foreground">Ex.: PrintScreen, Ctrl+Alt+S · Esc para cancelar</p>
+              <p className="text-base font-semibold">{t.hotkeyPrompt}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t.hotkeyHint}</p>
             </div>
           </div>
         </div>
@@ -247,12 +258,18 @@ function SwitchRow({ label, checked, onChange }: { label: string; checked: boole
   )
 }
 
-function ProviderSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+function ProviderSelect({ value, onChange, options, labels }: {
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  /** Rótulo por valor. Sem ele, a opção aparece com o próprio valor. */
+  labels?: Record<string, string>
+}) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent>
-        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        {options.map((o) => <SelectItem key={o} value={o}>{labels?.[o] ?? o}</SelectItem>)}
       </SelectContent>
     </Select>
   )

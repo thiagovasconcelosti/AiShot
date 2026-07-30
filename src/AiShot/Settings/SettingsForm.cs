@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows.Forms;
+using AiShot.Resources;
 using AiShot.Config;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -51,7 +53,7 @@ public sealed class SettingsForm : Form
         _hotKeyService = hotKeyService;
         _http = http ?? HttpClientFactory.Create();
 
-        Text = "AiShot — Configurações";
+        Text = Strings.SettingsWindowTitle;
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.None;   // header do React é a barra
         MaximizeBox = false;
@@ -116,7 +118,7 @@ public sealed class SettingsForm : Form
         catch (Exception ex)
         {
             HideLoading();
-            MessageBox.Show("Falha ao carregar a interface: " + ex.Message, "AiShot",
+            MessageBox.Show(string.Format(CultureInfo.CurrentCulture, Strings.ErrorSettingsUiFailed, ex.Message), Strings.AppName,
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -159,8 +161,9 @@ public sealed class SettingsForm : Form
                     try { Save(root.GetProperty("config")); }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Não foi possível salvar as configurações: " + ex.Message,
-                            "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        MessageBox.Show(
+                            string.Format(CultureInfo.CurrentCulture, Strings.ErrorSettingsSaveFailed, ex.Message),
+                            Strings.AppName, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     break;
                 case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
@@ -184,6 +187,10 @@ public sealed class SettingsForm : Form
             {
                 appVersion = AiShot.App.UpdateService.Current.ToString(),
                 hotKey = _cfg.HotKey,
+                language = _cfg.Language,
+                // A cultura efetiva, já resolvida: com "auto" a página não teria
+                // como saber qual idioma o sistema escolheu.
+                resolvedLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName,
                 closeOnCopy = _cfg.CloseOnCopy,
                 ai = new
                 {
@@ -238,7 +245,7 @@ public sealed class SettingsForm : Form
         catch (Exception ex)
         {
             if (!IsDisposed)
-                MessageBox.Show("Falha ao atualizar: " + ex.Message, "AiShot",
+                MessageBox.Show(string.Format(CultureInfo.CurrentCulture, Strings.ErrorUpdateFailed, ex.Message), Strings.AppName,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -254,6 +261,11 @@ public sealed class SettingsForm : Form
                 ? n : padrao;
 
         _cfg.HotKey = S(c, "hotKey").Trim();
+
+        // Opcional na mensagem: uma página de versão anterior não envia o
+        // idioma, e sobrescrever com vazio voltaria tudo para "automático".
+        if (c.TryGetProperty("language", out var lang) && lang.GetString() is { Length: > 0 } tag)
+            _cfg.Language = tag;
         _cfg.CloseOnCopy = B(c, "closeOnCopy");
 
         var ai = c.GetProperty("ai");

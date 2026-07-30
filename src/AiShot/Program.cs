@@ -36,7 +36,7 @@ internal static class Program
         if (ex is null) return;
         try
         {
-            MessageBox.Show(ex.Message, "AiShot — erro inesperado",
+            MessageBox.Show(ex.Message, AiShot.Resources.Strings.TitleUnexpectedError,
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         catch { /* nada a fazer */ }
