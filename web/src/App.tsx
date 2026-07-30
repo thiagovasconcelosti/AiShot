@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Eye, EyeOff, X, Keyboard, Download, Loader2 } from "lucide-react"
-import { bridge, type Config, type Endpoint, type Vision } from "@/bridge"
+// History vem com alias: o nome colide com a interface History do DOM.
+import { bridge, type Config, type Endpoint, type Vision, type History as HistoryCfg } from "@/bridge"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -50,6 +51,7 @@ export default function App() {
   const setAi = (patch: Partial<Config["ai"]>) => set({ ai: { ...cfg.ai, ...patch } })
   const setFb = (patch: Partial<Endpoint>) => setAi({ fallback: { ...cfg.ai.fallback, ...patch } })
   const setVis = (patch: Partial<Vision>) => setAi({ vision: { ...cfg.ai.vision, ...patch } })
+  const setHist = (patch: Partial<HistoryCfg>) => set({ history: { ...cfg.history, ...patch } })
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
@@ -128,6 +130,43 @@ export default function App() {
             <ProviderSelect value={cfg.imageUpload.service} onChange={(v) => set({ imageUpload: { ...cfg.imageUpload, service: v } })} options={SERVICES} />
           </Field>
           <Field label="API Key"><Password value={cfg.imageUpload.apiKey} onChange={(v) => set({ imageUpload: { ...cfg.imageUpload, apiKey: v } })} placeholder="opcional" /></Field>
+        </Section>
+
+        <Section
+          title="Histórico de capturas"
+          subtitle="Guarda as últimas capturas em disco para recuperar pela bandeja"
+        >
+          <SwitchRow
+            label="Guardar histórico"
+            checked={cfg.history.enabled}
+            onChange={(v) => setHist({ enabled: v })}
+          />
+          {cfg.history.enabled && (
+            <>
+              <Field label="Máx. itens">
+                <NumberInput
+                  value={cfg.history.maxItems}
+                  min={1}
+                  max={100}
+                  onChange={(v) => setHist({ maxItems: v })}
+                />
+              </Field>
+              <Field label="Máx. espaço">
+                <NumberInput
+                  value={cfg.history.maxSizeMb}
+                  min={1}
+                  max={5000}
+                  suffix="MB"
+                  onChange={(v) => setHist({ maxSizeMb: v })}
+                />
+              </Field>
+              <p className="text-xs text-muted-foreground pt-1">
+                Capturas podem conter dados sensíveis. Elas ficam em disco até
+                serem substituídas pelos limites acima ou apagadas em
+                Histórico&nbsp;→&nbsp;Limpar, no menu da bandeja.
+              </p>
+            </>
+          )}
         </Section>
 
         <Section title="Comportamento">
@@ -216,6 +255,44 @@ function ProviderSelect({ value, onChange, options }: { value: string; onChange:
         {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
       </SelectContent>
     </Select>
+  )
+}
+
+function NumberInput({ value, onChange, min, max, suffix }: {
+  value: number; onChange: (v: number) => void; min: number; max: number; suffix?: string
+}) {
+  // O estado é texto para que o campo possa ficar vazio enquanto se digita —
+  // com número puro, apagar o conteúdo viraria 0 e o cursor pularia.
+  const [texto, setTexto] = useState(String(value))
+  useEffect(() => { setTexto(String(value)) }, [value])
+
+  const confirmar = () => {
+    const n = parseInt(texto, 10)
+    // Valor em branco ou fora da faixa volta ao que estava configurado.
+    const valido = Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : value
+    setTexto(String(valido))
+    onChange(valido)
+  }
+
+  return (
+    <div className="relative">
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={confirmar}
+        onKeyDown={(e) => { if (e.key === "Enter") confirmar() }}
+        className={suffix ? "pr-11" : undefined}
+      />
+      {suffix && (
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+          {suffix}
+        </span>
+      )}
+    </div>
   )
 }
 
