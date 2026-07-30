@@ -12,3 +12,7 @@ src/AiShot/appsettings.json
 *.nupkg
 web/node_modules/
 web/dist/
+
+# Artefatos locais de planejamento (o ROADMAP.md versionado é a fonte pública)
+.milestones/
+*.local.md
