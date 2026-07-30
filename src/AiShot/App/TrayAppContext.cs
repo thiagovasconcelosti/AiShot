@@ -43,6 +43,7 @@ public sealed class TrayAppContext : ApplicationContext
 
         _hotKey = new GlobalHotKey();
         _hotKey.Pressed += (_, _) => StartCapture();
+        _hotKey.HookRecovered += OnHookRecovered;
         RegisterHotKey();
 
         CleanupTempFiles();
@@ -102,6 +103,16 @@ public sealed class TrayAppContext : ApplicationContext
         menu.Items.Add("Sair", null, (_, _) => ExitApp());
         return menu;
     }
+
+    /// <summary>
+    /// O vigia reinstalou o hook após o Windows tê-lo derrubado (callback lento
+    /// além de LowLevelHooksTimeout). Avisa uma única vez — a classe do atalho
+    /// só dispara este evento na primeira queda observada.
+    /// </summary>
+    private void OnHookRecovered() =>
+        _tray.ShowBalloonTip(4000, "AiShot",
+            $"O atalho '{_cfg.HotKey}' havia parado de responder e foi restabelecido.",
+            ToolTipIcon.Info);
 
     private void RegisterHotKey()
     {
