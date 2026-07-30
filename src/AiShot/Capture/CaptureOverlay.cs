@@ -56,7 +56,7 @@ public sealed class CaptureOverlay : Form
     public CaptureOverlay(ICaptureServices services)
     {
         _services = services;
-        _chat = new ChatPanel(this, () => _services.StartChat(RenderFinal()), _cts.Token);
+        _chat = new ChatPanel(this, StartChatSession, _cts.Token);
         var vb = SystemInformation.VirtualScreen;
 
         FormBorderStyle = FormBorderStyle.None;
@@ -249,12 +249,28 @@ public sealed class CaptureOverlay : Form
 
     private Tool Toggle(Tool t) => _tool == t ? Tool.None : t;
 
+    /// <summary>
+    /// Abre a sessão de chat sobre um snapshot da seleção. StartChat converte a
+    /// imagem em PNG de forma síncrona, então o bitmap pode ser descartado aqui.
+    /// </summary>
+    private Ai.IAiChatSession StartChatSession()
+    {
+        using var bmp = RenderFinal();
+        return _services.StartChat(bmp);
+    }
+
     private void OnBottomAction(string id)
     {
+        // Cada RenderFinal() aloca um bitmap do tamanho da seleção; quem o cria
+        // é responsável por descartá-lo.
         switch (id)
         {
-            case "copy": SafeSetClipboardImage(RenderFinal()); break;
-            case "save": _services.SaveToFile(RenderFinal()); break;
+            case "copy":
+                using (var bmp = RenderFinal()) SafeSetClipboardImage(bmp);
+                break;
+            case "save":
+                using (var bmp = RenderFinal()) _services.SaveToFile(bmp);
+                break;
             case "paint": OpenInPaint(); break;
             case "upload": _ = DoUploadAsync(); break;
             case "share": _ = DoUploadAsync(share: true); break;
@@ -268,7 +284,11 @@ public sealed class CaptureOverlay : Form
         try
         {
             Flash("Enviando…");
-            var url = await _services.UploadAsync(RenderFinal(), _cts.Token).ConfigureAwait(true);
+            // O bitmap precisa sobreviver até UploadAsync convertê-lo em PNG:
+            // descartar antes do await lançaria ObjectDisposedException.
+            string url;
+            using (var bmp = RenderFinal())
+                url = await _services.UploadAsync(bmp, _cts.Token).ConfigureAwait(true);
             if (IsDisposed) return;
 
             SafeSetClipboardText(url);
