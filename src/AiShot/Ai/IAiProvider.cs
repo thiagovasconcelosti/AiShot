@@ -31,6 +31,17 @@ public interface IAiProvider
 
     /// <summary>Envia prompt (com imagem opcional) e retorna texto.</summary>
     Task<AiResponse> CompleteAsync(AiRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Envia o prompt e devolve o texto em pedaços, conforme a API os produz.
+    /// </summary>
+    /// <remarks>
+    /// Cada item é um incremento, não o texto acumulado — cabe a quem consome
+    /// concatenar. Uma falha no meio da enumeração deixa o texto pela metade, e
+    /// o chamador precisa descartá-lo antes de tentar outro provedor: misturar
+    /// duas respostas seria pior do que perder a primeira.
+    /// </remarks>
+    IAsyncEnumerable<string> StreamAsync(AiRequest request, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -43,6 +54,21 @@ public interface IAiChatSession
 {
     IReadOnlyList<ChatMessage> History { get; }
     Task<string> SendAsync(string userMessage, CancellationToken ct = default);
+
+    /// <summary>
+    /// Envia a mensagem e devolve a resposta em pedaços, conforme a API os produz.
+    /// Devolve o texto completo ao final e o registra no histórico.
+    /// </summary>
+    /// <param name="aoReceber">
+    /// Chamado a cada incremento com o texto acumulado até ali. Pode ser chamado
+    /// com string vazia — quando o provedor principal falha no meio da resposta,
+    /// o parcial é descartado antes de o fallback recomeçar do zero, e quem
+    /// desenha precisa saber que o texto anterior não vale mais.
+    /// </param>
+    Task<string> SendStreamingAsync(
+        string userMessage,
+        Action<string> aoReceber,
+        CancellationToken ct = default);
 }
 
 /// <summary>

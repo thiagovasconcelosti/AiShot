@@ -78,6 +78,12 @@ Every setting can be overridden by an env var prefixed `AISHOT_` (highest preced
 
 Providers implement `IAiProvider` (`AnthropicProvider`, `OpenAiProvider`) and are OpenAI/Anthropic REST clients over a shared `HttpClient`. HTTP error bodies are truncated before surfacing.
 
+### Streaming
+
+`IAiProvider.StreamAsync` returns the answer in increments via Server-Sent Events (`ServerSentEvents` parses the stream; each provider supplies its own delta extractor). The chat renders text as it arrives instead of waiting for the full response.
+
+If the main provider fails **mid-stream**, the partial text already displayed is discarded before the fallback starts over — the callback receives an empty string to signal it. Splicing the start of one answer onto the end of another would produce text neither model wrote.
+
 ## Global hotkey
 
 `GlobalHotKey` uses a **low-level keyboard hook** (`WH_KEYBOARD_LL`) instead of `RegisterHotKey`, because on Windows 11 `PrintScreen` is reserved by the Snipping Tool and `RegisterHotKey` fails/gets stolen. The hook intercepts the key first and **suppresses** it. A **capture mode** lets the Settings window read a pressed combo without triggering a capture.
@@ -111,7 +117,7 @@ dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 --self-contained f
 src/AiShot/
   Program.cs, App/ (TrayAppContext, AppHost, StartupManager)
   Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, ShapeRenderer, ToolbarLayout, Annotation)
-  Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, HttpUtil)
+  Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, ServerSentEvents, HttpUtil)
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)
   HotKey/ (GlobalHotKey)
