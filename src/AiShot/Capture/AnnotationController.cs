@@ -51,11 +51,53 @@ internal sealed class AnnotationController
     /// </summary>
     public void ToggleTool(Tool tool) => Tool = Tool == tool ? Tool.None : tool;
 
+    /// <summary>
+    /// Atalho de teclado de cada ferramenta. As letras seguem a inicial do nome
+    /// em português, exceto onde haveria conflito.
+    /// </summary>
+    private static readonly Dictionary<char, Tool> Atalhos = new()
+    {
+        ['l'] = Tool.Pen,       // lápis
+        ['s'] = Tool.Arrow,     // seta
+        ['r'] = Tool.Line,      // reta ("l" já é o lápis)
+        ['q'] = Tool.Rect,      // quadrado/retângulo
+        ['e'] = Tool.Ellipse,   // elipse
+        ['t'] = Tool.Text,      // texto
+        ['b'] = Tool.Blur,      // borrão
+        ['n'] = Tool.Step,      // numeração
+    };
+
+    /// <summary>
+    /// Aplica o atalho de teclado da tecla informada, se houver.
+    /// </summary>
+    /// <returns>true se alguma ferramenta foi alternada.</returns>
+    public bool ApplyShortcut(char tecla)
+    {
+        if (!Atalhos.TryGetValue(char.ToLowerInvariant(tecla), out var ferramenta)) return false;
+
+        ToggleTool(ferramenta);
+        return true;
+    }
+
     public void SetColor(Color color) => Color = color;
 
     public void SetThickness(int thickness) => Thickness = thickness;
 
     // ---------- Desenho ----------
+
+    /// <summary>
+    /// Próximo número da sequência de passos. Reinicia a cada captura, junto
+    /// com o resto do estado.
+    /// </summary>
+    public int NextStepNumber => ContarPassos() + 1;
+
+    private int ContarPassos()
+    {
+        int total = 0;
+        foreach (var s in _shapes)
+            if (s.Tool == Tool.Step) total++;
+        return total;
+    }
 
     /// <summary>Inicia uma forma no ponto informado, com a ferramenta ativa.</summary>
     public void BeginDraw(Point at)
@@ -64,6 +106,10 @@ internal sealed class AnnotationController
 
         _emCurso = new Shape { Tool = Tool, Color = Color, Thickness = Thickness, A = at, B = at };
         if (Tool == Tool.Pen) _emCurso.Points = new List<Point> { at };
+
+        // O marcador de passo é posicionado por clique, e não por arraste: o
+        // número é atribuído já na criação, contando os que estão na lista.
+        if (Tool == Tool.Step) _emCurso.StepNumber = NextStepNumber;
     }
 
     /// <summary>Estende a forma em curso até o ponto informado.</summary>

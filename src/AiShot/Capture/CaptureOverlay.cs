@@ -88,6 +88,13 @@ public sealed class CaptureOverlay : Form
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
     }
 
+    /// <summary>
+    /// true quando algum campo de texto está recebendo digitação — a caixa da
+    /// ferramenta de texto ou o campo do chat. Enquanto for verdade, as letras
+    /// pertencem ao texto, não aos atalhos de ferramenta.
+    /// </summary>
+    private bool EditandoTexto => _textInput is not null || _chat.IsOpen;
+
     // ---------- Ciclo de vida ----------
     protected override void OnShown(EventArgs e)
     {
@@ -122,6 +129,19 @@ public sealed class CaptureOverlay : Form
             if (_anotacoes.Redo()) Invalidate();
             return;
         }
+
+        // Atalhos de ferramenta. Só valem no modo de edição e enquanto nenhum
+        // campo de texto tem o foco — do contrário, digitar "b" trocaria de
+        // ferramenta em vez de escrever.
+        if (_mode == Mode.Editing && !e.Control && !e.Alt && !EditandoTexto &&
+            _anotacoes.ApplyShortcut((char)e.KeyCode))
+        {
+            Cursor = _anotacoes.Tool == Tool.None ? Cursors.Default : Cursors.Cross;
+            e.SuppressKeyPress = true;
+            Invalidate();
+            return;
+        }
+
         base.OnKeyDown(e);
     }
 
@@ -179,6 +199,13 @@ public sealed class CaptureOverlay : Form
             else if (_anotacoes.Tool == Tool.Text)
             {
                 BeginTextInput(e.Location);
+            }
+            else if (_anotacoes.Tool == Tool.Step)
+            {
+                // Posicionado por clique: confirma na hora, sem esperar arraste.
+                _anotacoes.BeginDraw(e.Location);
+                _anotacoes.EndDraw();
+                Invalidate();
             }
             else // iniciar desenho
             {
@@ -256,6 +283,8 @@ public sealed class CaptureOverlay : Form
             case "rect": _anotacoes.ToggleTool(Tool.Rect); break;
             case "ellipse": _anotacoes.ToggleTool(Tool.Ellipse); break;
             case "text": _anotacoes.ToggleTool(Tool.Text); break;
+            case "blur": _anotacoes.ToggleTool(Tool.Blur); break;
+            case "step": _anotacoes.ToggleTool(Tool.Step); break;
             case "color": _paletteOpen = !_paletteOpen; _thicknessMenuOpen = false; break;
             case "thickness": _thicknessMenuOpen = !_thicknessMenuOpen; _paletteOpen = false; break;
             case "undo": _anotacoes.Undo(); break;
@@ -380,8 +409,10 @@ public sealed class CaptureOverlay : Form
         // anotações (recortadas à seleção)
         g.SetClip(_sel);
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s);
-        if (_anotacoes.InProgress is not null) ShapeRenderer.Draw(g, _anotacoes.InProgress);
+        // O borrão lê os pixels de _background, cujas coordenadas coincidem com
+        // as do overlay (ambos cobrem a área virtual): deslocamento zero.
+        foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s, _background);
+        if (_anotacoes.InProgress is not null) ShapeRenderer.Draw(g, _anotacoes.InProgress, _background);
         g.ResetClip();
 
         if (_mode == Mode.Editing)
@@ -462,8 +493,13 @@ public sealed class CaptureOverlay : Form
         using var g = Graphics.FromImage(bmp);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.DrawImage(_background, new Rectangle(0, 0, _sel.Width, _sel.Height), _sel, GraphicsUnit.Pixel);
+
+        // A partir daqui o Graphics converte coordenadas do overlay para as do
+        // bitmap; os shapes seguem sendo desenhados em coordenadas do overlay,
+        // que são as mesmas de _background — daí o deslocamento zero na leitura
+        // dos pixels pelo borrão.
         g.TranslateTransform(-_sel.Left, -_sel.Top);
-        foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s);
+        foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s, _background);
         return bmp;
     }
 
