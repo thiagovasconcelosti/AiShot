@@ -71,4 +71,52 @@ public class UpdateServiceTests
         Assert.True(v.Build >= 0, "O componente de build nunca deve ser negativo.");
         Assert.Equal(-1, v.Revision); // construída com três componentes
     }
+
+    // ---------- Leitura do arquivo de checksum ----------
+
+    private const string HashValido = "116B689374E078C96BE186A1790794A588A4E6E12C3B177F35CB095F58223122";
+
+    [Fact]
+    public void ExtrairHash_NoFormatoDoSha256sum_DevolveApenasOHash()
+    {
+        // É o formato que o fluxo de release grava: "<hash>  <nome do arquivo>".
+        Assert.Equal(HashValido, UpdateService.ExtrairHash($"{HashValido}  AiShot-Setup-0.1.3.exe"));
+    }
+
+    [Fact]
+    public void ExtrairHash_ComApenasOHash_Aceita() =>
+        Assert.Equal(HashValido, UpdateService.ExtrairHash(HashValido));
+
+    [Fact]
+    public void ExtrairHash_ComQuebraDeLinhaAoFinal_Aceita() =>
+        Assert.Equal(HashValido, UpdateService.ExtrairHash($"{HashValido}  arquivo.exe\n"));
+
+    [Fact]
+    public void ExtrairHash_ComVariasLinhas_UsaAPrimeira() =>
+        Assert.Equal(HashValido, UpdateService.ExtrairHash($"{HashValido}  a.exe\noutra-linha-qualquer\n"));
+
+    [Fact]
+    public void ExtrairHash_ComTabulacaoComoSeparador_Aceita() =>
+        Assert.Equal(HashValido, UpdateService.ExtrairHash($"{HashValido}\tarquivo.exe"));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("não é um hash")]
+    [InlineData("116B689374E078C96BE186A1790794A588A4E6E12C3B177F35CB095F5822312")]    // 63 dígitos
+    [InlineData("116B689374E078C96BE186A1790794A588A4E6E12C3B177F35CB095F582231222")]  // 65 dígitos
+    [InlineData("116B689374E078C96BE186A1790794A588A4E6E12C3B177F35CB095F5822312Z")]   // caractere inválido
+    [InlineData("<!DOCTYPE html><html>página de erro</html>")]
+    public void ExtrairHash_ComConteudoInvalido_DevolveNulo(string? conteudo) =>
+        Assert.Null(UpdateService.ExtrairHash(conteudo));
+
+    [Fact]
+    public void ExtrairHash_NaoDiferenciaMaiusculasDeMinusculas()
+    {
+        // A comparação de integridade é feita sem diferenciar caixa; a leitura
+        // apenas precisa aceitar as duas formas.
+        Assert.NotNull(UpdateService.ExtrairHash(HashValido.ToLowerInvariant()));
+        Assert.NotNull(UpdateService.ExtrairHash(HashValido.ToUpperInvariant()));
+    }
 }
