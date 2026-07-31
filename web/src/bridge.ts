@@ -15,7 +15,11 @@ export type Config = {
     vision: Vision
   }
   imageUpload: { service: string; apiKey: string }
+  history: History
 }
+
+/** Histórico das últimas capturas em disco. Desligado por padrão. */
+export type History = { enabled: boolean; maxItems: number; maxSizeMb: number }
 
 type Msg =
   | { type: "config"; config: Config }
@@ -88,5 +92,6 @@ function mockConfig(): Config {
       vision: { enabled: true, provider: "openai", apiKey: "", model: "google/gemma-4-26b-a4b-it:free", baseUrl: "https://openrouter.ai/api" },
     },
     imageUpload: { service: "freeimage", apiKey: "" },
+    history: { enabled: false, maxItems: 10, maxSizeMb: 100 },
   }
 }

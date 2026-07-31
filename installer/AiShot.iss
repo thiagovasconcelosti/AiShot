@@ -56,3 +56,64 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Iniciar o {#AppName} agora"; Flags: nowait postinstall skipifsilent
+
+; Caches e perfis recriados na proxima execucao: saem sempre, sem perguntar.
+; A configuracao e o historico ficam de fora daqui — sao dados do usuario, e a
+; remocao deles e decidida em CurUninstallStepChanged.
+[UninstallDelete]
+Type: filesandordirs; Name: "{%TEMP}\AiShot.WebView2"
+Type: filesandordirs; Name: "{%TEMP}\AiShot.webui"
+Type: files; Name: "{%TEMP}\aishot_*.png"
+
+[Code]
+{ Remove uma pasta inteira, ignorando o que nao existe. }
+procedure RemoverPasta(const Caminho: string);
+begin
+  if DirExists(Caminho) then
+    DelTree(Caminho, True, True, True);
+end;
+
+{ Pergunta sobre os dados do usuario depois de desinstalar o programa.
+
+  Sao duas perguntas separadas de proposito. A configuracao guarda as chaves de
+  API (cifradas por DPAPI, inuteis em outra maquina) e quem reinstala costuma
+  querer manter. O historico guarda imagens do que estava na tela, que e o dado
+  mais sensivel que o app produz — quem desinstala e nao apaga precisa saber que
+  as imagens continuam la. }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Config, Historico: string;
+begin
+  if CurUninstallStep <> usPostUninstall then
+    Exit;
+
+  Config := ExpandConstant('{userappdata}\AiShot');
+  Historico := ExpandConstant('{localappdata}\AiShot\history');
+
+  { Silencioso (/VERYSILENT): sem ninguem para responder, os dados ficam.
+    Apagar por conta propria seria pior do que deixar. }
+  if UninstallSilent then
+    Exit;
+
+  if DirExists(Historico) then
+  begin
+    if MsgBox('Remover tambem o historico de capturas guardado em disco?'#13#10#13#10
+              + 'Sao imagens do que estava na sua tela. Se voce escolher Nao, elas'#13#10
+              + 'permanecem em:'#13#10 + Historico,
+              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+      RemoverPasta(Historico);
+  end;
+
+  if DirExists(Config) then
+  begin
+    if MsgBox('Remover tambem as configuracoes e as chaves de API salvas?'#13#10#13#10
+              + 'Escolha Nao para manter suas configuracoes caso pretenda'#13#10
+              + 'reinstalar o AiShot.',
+              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+      RemoverPasta(Config);
+  end;
+
+  { A pasta-mae em LOCALAPPDATA so sai se ficou vazia — pode conter o historico
+    que o usuario acabou de escolher manter. }
+  RemoveDir(ExpandConstant('{localappdata}\AiShot'));
+end;

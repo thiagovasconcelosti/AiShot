@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows.Forms;
 using AiShot.Capture;
 using AiShot.Config;
+using AiShot.History;
 using AiShot.HotKey;
 using AiShot.Settings;
 
@@ -20,6 +22,16 @@ public sealed class TrayAppContext : ApplicationContext
     private AppHost _host;
     private CaptureOverlay? _overlay;
     private readonly MessageWindow _msgWindow;
+
+    /// <summary>
+    /// Submenu do histórico. O <see cref="ContextMenuStrip"/> que o contém é
+    /// dono dos seus itens e os descarta junto; guardar a referência aqui é só
+    /// para repovoá-lo a cada abertura.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Usage", "CA2213:Campos descartáveis devem ser descartados",
+        Justification = "Item de um ContextMenuStrip, que é dono dos filhos e os descarta.")]
+    private ToolStripMenuItem? _historyMenu;
 
     /// <summary>
     /// Referência ao diálogo de Configurações enquanto ele está aberto, usada
@@ -109,9 +121,140 @@ public sealed class TrayAppContext : ApplicationContext
         };
         menu.Items.Add(startup);
 
+        // Preenchido na abertura: o conteúdo muda a cada captura, e montar aqui
+        // deixaria o menu mostrando o estado de quando o app subiu.
+        _historyMenu = new ToolStripMenuItem("Histórico");
+        menu.Items.Add(_historyMenu);
+
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Sair", null, (_, _) => ExitApp());
+
+        menu.Opening += (_, _) => PreencherHistorico();
         return menu;
+    }
+
+    /// <summary>
+    /// Monta o submenu do histórico com as capturas atuais. Some do menu quando
+    /// o recurso está desligado — um item vazio sugeriria que há algo guardado.
+    /// </summary>
+    private void PreencherHistorico()
+    {
+        if (_historyMenu is null) return;
+
+        // Descarta os itens da montagem anterior antes de limpar: Clear() só
+        // solta as referências, e as miniaturas são bitmaps que ficariam
+        // acumulando a cada abertura do menu.
+        // A cópia é necessária: Dispose remove o item da coleção, e iterar
+        // sobre ela enquanto encolhe pularia metade dos itens.
+        var anteriores = _historyMenu.DropDownItems.Cast<ToolStripItem>().ToArray();
+        _historyMenu.DropDownItems.Clear();
+        foreach (var antigo in anteriores)
+        {
+            antigo.Image?.Dispose();
+            antigo.Dispose();
+        }
+
+        if (!_cfg.History.Enabled)
+        {
+            _historyMenu.Visible = false;
+            return;
+        }
+
+        _historyMenu.Visible = true;
+
+        var historico = new CaptureHistory(
+            CaptureHistory.PastaPadrao, _cfg.History.MaxItems, _cfg.History.MaxSizeMb);
+
+        var itens = historico.Listar();
+        if (itens.Count == 0)
+        {
+            _historyMenu.DropDownItems.Add(new ToolStripMenuItem("(vazio)") { Enabled = false });
+            return;
+        }
+
+        foreach (var item in itens)
+        {
+            var entrada = new ToolStripMenuItem(
+                item.Momento.ToLocalTime().ToString("dd/MM HH:mm:ss", CultureInfo.CurrentCulture))
+            {
+                Image = CarregarMiniatura(item.Caminho),
+                Tag = item.Caminho,
+            };
+            entrada.Click += (s, _) => RecuperarCaptura((string)((ToolStripMenuItem)s!).Tag!);
+            _historyMenu.DropDownItems.Add(entrada);
+        }
+
+        _historyMenu.DropDownItems.Add(new ToolStripSeparator());
+        _historyMenu.DropDownItems.Add("Abrir pasta", null, (_, _) => AbrirPastaDoHistorico());
+        _historyMenu.DropDownItems.Add("Limpar histórico", null, (_, _) => LimparHistorico(historico));
+    }
+
+    /// <summary>
+    /// Miniatura para o item do menu. Devolve null se o arquivo não puder ser
+    /// lido — o item continua clicável, só sem imagem.
+    /// </summary>
+    private static Image? CarregarMiniatura(string caminho)
+    {
+        try
+        {
+            // Lê os bytes antes de decodificar: Image.FromFile mantém o arquivo
+            // travado enquanto a imagem viver, e o menu guarda a miniatura.
+            using var original = Image.FromStream(new MemoryStream(File.ReadAllBytes(caminho)));
+            return new Bitmap(original, new Size(32, 32));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Histórico: miniatura de '{caminho}' falhou: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Copia a captura guardada de volta para a área de transferência.</summary>
+    private void RecuperarCaptura(string caminho)
+    {
+        try
+        {
+            using var img = Image.FromStream(new MemoryStream(File.ReadAllBytes(caminho)));
+            Clipboard.SetImage(img);
+            _tray.ShowBalloonTip(2000, "AiShot", "Captura copiada para a área de transferência.", ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Não foi possível recuperar a captura.\n\n{ex.Message}",
+                "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private static void AbrirPastaDoHistorico()
+    {
+        try
+        {
+            Directory.CreateDirectory(CaptureHistory.PastaPadrao);
+            Process.Start(new ProcessStartInfo(CaptureHistory.PastaPadrao) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Apaga tudo, com confirmação. É irreversível e a única cópia de uma
+    /// captura que o usuário não salvou pode estar aqui.
+    /// </summary>
+    private void LimparHistorico(CaptureHistory historico)
+    {
+        var resposta = MessageBox.Show(
+            "Apagar todas as capturas guardadas no histórico?\n\nEsta ação não pode ser desfeita.",
+            "AiShot", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+
+        if (resposta != DialogResult.Yes) return;
+
+        try { historico.Limpar(); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     /// <summary>

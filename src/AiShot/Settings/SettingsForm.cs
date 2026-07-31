@@ -195,6 +195,12 @@ public sealed class SettingsForm : Form
                     vision = new { enabled = ai.Vision.Enabled, provider = ai.Vision.Provider, apiKey = ai.Vision.ApiKey, model = ai.Vision.Model, baseUrl = ai.Vision.BaseUrl },
                 },
                 imageUpload = new { service = _cfg.ImageUpload.Service, apiKey = _cfg.ImageUpload.ApiKey },
+                history = new
+                {
+                    enabled = _cfg.History.Enabled,
+                    maxItems = _cfg.History.MaxItems,
+                    maxSizeMb = _cfg.History.MaxSizeMb,
+                },
             },
         };
         _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
@@ -241,6 +247,11 @@ public sealed class SettingsForm : Form
     {
         static string S(JsonElement e, string p) => e.TryGetProperty(p, out var v) ? (v.GetString() ?? "") : "";
         static bool B(JsonElement e, string p) => e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.True;
+        // Campo numérico do formulário: um valor ausente ou não-numérico mantém
+        // o que já estava configurado, em vez de zerar o limite.
+        static int I(JsonElement e, string p, int padrao) =>
+            e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)
+                ? n : padrao;
 
         _cfg.HotKey = S(c, "hotKey").Trim();
         _cfg.CloseOnCopy = B(c, "closeOnCopy");
@@ -268,6 +279,15 @@ public sealed class SettingsForm : Form
         var up = c.GetProperty("imageUpload");
         _cfg.ImageUpload.Service = S(up, "service");
         _cfg.ImageUpload.ApiKey = S(up, "apiKey").Trim();
+
+        // O histórico é opcional na mensagem: uma página de versão anterior não
+        // o envia, e sobrescrever com os padrões apagaria a escolha do usuário.
+        if (c.TryGetProperty("history", out var hist))
+        {
+            _cfg.History.Enabled = B(hist, "enabled");
+            _cfg.History.MaxItems = I(hist, "maxItems", _cfg.History.MaxItems);
+            _cfg.History.MaxSizeMb = I(hist, "maxSizeMb", _cfg.History.MaxSizeMb);
+        }
 
         _cfg.Save();
         DialogResult = DialogResult.OK;
