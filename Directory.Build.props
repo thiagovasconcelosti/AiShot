@@ -11,7 +11,7 @@
     Ao publicar uma versão, altere apenas esta propriedade.
   -->
   <PropertyGroup>
-    <AiShotVersion>0.1.3</AiShotVersion>
+    <AiShotVersion>0.1.4</AiShotVersion>
   </PropertyGroup>
 
   <!--
