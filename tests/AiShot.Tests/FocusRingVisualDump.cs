@@ -37,8 +37,7 @@ public class FocusRingVisualDump
             g.DrawString("foco do teclado: botão 'arrow' na barra lateral", rotulo, tinta, 10, 10);
         }
 
-        var caminho = Path.Combine(AppContext.BaseDirectory, "amostra-foco.png");
-        saida.Save(caminho, ImageFormat.Png);
+        var caminho = AmostraVisual.Gravar(saida, "amostra-foco.png");
 
         Assert.True(File.Exists(caminho));
     }

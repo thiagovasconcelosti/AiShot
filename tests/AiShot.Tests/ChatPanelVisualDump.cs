@@ -53,8 +53,7 @@ public class ChatPanelVisualDump
                 Color.FromArgb(228, 228, 231));
         }
 
-        var caminho = Path.Combine(AppContext.BaseDirectory, "amostra-chat.png");
-        saida.Save(caminho, ImageFormat.Png);
+        var caminho = AmostraVisual.Gravar(saida, "amostra-chat.png");
 
         Assert.True(File.Exists(caminho));
     }

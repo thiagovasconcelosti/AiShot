@@ -34,7 +34,12 @@ jobs:
         shell: pwsh
         run: |
           $props = [xml](Get-Content Directory.Build.props)
-          $versao = $props.Project.PropertyGroup.AiShotVersion.Trim()
+          # XPath em vez de $props.Project.PropertyGroup.AiShotVersion: o arquivo
+          # tem mais de um <PropertyGroup>, e o acesso por propriedade devolve um
+          # array nessa situação — a versão sairia nula.
+          $no = $props.SelectSingleNode('/Project/PropertyGroup/AiShotVersion')
+          if (-not $no) { throw "AiShotVersion não encontrado em Directory.Build.props." }
+          $versao = $no.InnerText.Trim()
           $daTag = "${{ github.ref_name }}".TrimStart('v')
           Write-Host "Directory.Build.props: $versao"
           Write-Host "Tag:                   $daTag"

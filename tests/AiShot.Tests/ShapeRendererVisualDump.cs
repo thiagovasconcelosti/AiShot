@@ -76,8 +76,7 @@ public class ShapeRendererVisualDump
             }, fundo);
         }
 
-        var caminho = Path.Combine(AppContext.BaseDirectory, "amostra-anotacoes.png");
-        saida.Save(caminho, ImageFormat.Png);
+        var caminho = AmostraVisual.Gravar(saida, "amostra-anotacoes.png");
 
         Assert.True(File.Exists(caminho));
     }
