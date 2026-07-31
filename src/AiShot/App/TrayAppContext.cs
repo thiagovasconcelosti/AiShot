@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using AiShot.Capture;
 using AiShot.Config;
 using AiShot.History;
+using AiShot.Resources;
 using AiShot.HotKey;
 using AiShot.Settings;
 
@@ -49,6 +50,9 @@ public sealed class TrayAppContext : ApplicationContext
     public TrayAppContext()
     {
         _cfg = AppConfig.Load();
+        // Antes de qualquer texto ser montado: o menu da bandeja é construído
+        // logo abaixo e leria os recursos no idioma errado.
+        Idioma.Aplicar(_cfg.Language);
         _host = new AppHost(_cfg, _http);
 
         // Recebe o aviso de uma segunda instância pedindo para mostrar a UI.
@@ -103,10 +107,10 @@ public sealed class TrayAppContext : ApplicationContext
     private ContextMenuStrip BuildMenu()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Capturar", null, (_, _) => StartCapture());
-        menu.Items.Add("Configurações…", null, (_, _) => OpenSettings());
+        menu.Items.Add(Strings.TrayCapture, null, (_, _) => StartCapture());
+        menu.Items.Add(Strings.TraySettings, null, (_, _) => OpenSettings());
 
-        var startup = new ToolStripMenuItem("Iniciar com o Windows")
+        var startup = new ToolStripMenuItem(Strings.TrayStartWithWindows)
         {
             CheckOnClick = true,
             Checked = StartupManager.IsEnabled(),
@@ -116,18 +120,18 @@ public sealed class TrayAppContext : ApplicationContext
             try { StartupManager.SetEnabled(((ToolStripMenuItem)s!).Checked); }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(ex.Message, Strings.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         };
         menu.Items.Add(startup);
 
         // Preenchido na abertura: o conteúdo muda a cada captura, e montar aqui
         // deixaria o menu mostrando o estado de quando o app subiu.
-        _historyMenu = new ToolStripMenuItem("Histórico");
+        _historyMenu = new ToolStripMenuItem(Strings.TrayHistory);
         menu.Items.Add(_historyMenu);
 
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Sair", null, (_, _) => ExitApp());
+        menu.Items.Add(Strings.TrayExit, null, (_, _) => ExitApp());
 
         menu.Opening += (_, _) => PreencherHistorico();
         return menu;
@@ -168,7 +172,7 @@ public sealed class TrayAppContext : ApplicationContext
         var itens = historico.Listar();
         if (itens.Count == 0)
         {
-            _historyMenu.DropDownItems.Add(new ToolStripMenuItem("(vazio)") { Enabled = false });
+            _historyMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.TrayHistoryEmpty) { Enabled = false });
             return;
         }
 
@@ -185,8 +189,8 @@ public sealed class TrayAppContext : ApplicationContext
         }
 
         _historyMenu.DropDownItems.Add(new ToolStripSeparator());
-        _historyMenu.DropDownItems.Add("Abrir pasta", null, (_, _) => AbrirPastaDoHistorico());
-        _historyMenu.DropDownItems.Add("Limpar histórico", null, (_, _) => LimparHistorico(historico));
+        _historyMenu.DropDownItems.Add(Strings.TrayHistoryOpenFolder, null, (_, _) => AbrirPastaDoHistorico());
+        _historyMenu.DropDownItems.Add(Strings.TrayHistoryClear, null, (_, _) => LimparHistorico(historico));
     }
 
     /// <summary>
@@ -216,12 +220,13 @@ public sealed class TrayAppContext : ApplicationContext
         {
             using var img = Image.FromStream(new MemoryStream(File.ReadAllBytes(caminho)));
             Clipboard.SetImage(img);
-            _tray.ShowBalloonTip(2000, "AiShot", "Captura copiada para a área de transferência.", ToolTipIcon.Info);
+            _tray.ShowBalloonTip(2000, Strings.AppName, Strings.HistoryCaptureRestored, ToolTipIcon.Info);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Não foi possível recuperar a captura.\n\n{ex.Message}",
-                "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                string.Format(CultureInfo.CurrentCulture, Strings.ErrorHistoryRestoreFailed, ex.Message),
+                Strings.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -234,7 +239,7 @@ public sealed class TrayAppContext : ApplicationContext
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(ex.Message, Strings.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -245,15 +250,15 @@ public sealed class TrayAppContext : ApplicationContext
     private void LimparHistorico(CaptureHistory historico)
     {
         var resposta = MessageBox.Show(
-            "Apagar todas as capturas guardadas no histórico?\n\nEsta ação não pode ser desfeita.",
-            "AiShot", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+            Strings.HistoryClearConfirm,
+            Strings.AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
 
         if (resposta != DialogResult.Yes) return;
 
         try { historico.Limpar(); }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "AiShot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(ex.Message, Strings.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -263,16 +268,16 @@ public sealed class TrayAppContext : ApplicationContext
     /// só dispara este evento na primeira queda observada.
     /// </summary>
     private void OnHookRecovered() =>
-        _tray.ShowBalloonTip(4000, "AiShot",
-            $"O atalho '{_cfg.HotKey}' havia parado de responder e foi restabelecido.",
+        _tray.ShowBalloonTip(4000, Strings.AppName,
+            string.Format(CultureInfo.CurrentCulture, Strings.HotKeyRecovered, _cfg.HotKey),
             ToolTipIcon.Info);
 
     private void RegisterHotKey()
     {
         if (!_hotKey.Register(_cfg.HotKey))
         {
-            _tray.ShowBalloonTip(3000, "AiShot",
-                $"Não foi possível registrar o atalho '{_cfg.HotKey}'. Pode estar em uso.",
+            _tray.ShowBalloonTip(3000, Strings.AppName,
+                string.Format(CultureInfo.CurrentCulture, Strings.HotKeyRegisterFailed, _cfg.HotKey),
                 ToolTipIcon.Warning);
         }
     }
@@ -301,7 +306,7 @@ public sealed class TrayAppContext : ApplicationContext
         catch (Exception ex)
         {
             _overlay = null;
-            MessageBox.Show(ex.Message, "AiShot — erro na captura",
+            MessageBox.Show(ex.Message, Strings.TitleCaptureError,
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -326,8 +331,16 @@ public sealed class TrayAppContext : ApplicationContext
             {
                 // Recarrega config + recria host e re-registra atalho.
                 _cfg = AppConfig.Load();
+                Idioma.Aplicar(_cfg.Language);
                 _host = new AppHost(_cfg, _http);
                 RegisterHotKey();
+
+                // O menu foi montado com os textos do idioma anterior; trocar
+                // de idioma sem remontá-lo deixaria a bandeja desatualizada até
+                // o próximo reinício.
+                var antigo = _tray.ContextMenuStrip;
+                _tray.ContextMenuStrip = BuildMenu();
+                antigo?.Dispose();
             }
         }
         finally

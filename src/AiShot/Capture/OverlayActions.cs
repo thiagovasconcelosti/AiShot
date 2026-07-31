@@ -1,6 +1,8 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Windows.Forms;
+using AiShot.Resources;
 
 namespace AiShot.Capture;
 
@@ -47,9 +49,9 @@ internal sealed class OverlayActions
                 _servicos.CopyToClipboard(bmp);
 
             if (_servicos.CloseOnCopy) { _fechar(); return; }
-            _mensagem("Copiado");
+            _mensagem(Strings.FlashCopied);
         }
-        catch (Exception ex) { _mensagem("Área de transferência indisponível: " + ex.Message); }
+        catch (Exception ex) { _mensagem(string.Format(CultureInfo.CurrentCulture, Strings.ErrorClipboardUnavailable, ex.Message)); }
     }
 
     /// <summary>Abre o diálogo de salvar e grava a imagem.</summary>
@@ -60,7 +62,7 @@ internal sealed class OverlayActions
             using var bmp = _renderizar();
             _servicos.SaveToFile(bmp);
         }
-        catch (Exception ex) { _mensagem("Falha ao salvar: " + ex.Message); }
+        catch (Exception ex) { _mensagem(string.Format(CultureInfo.CurrentCulture, Strings.ErrorSaveFailed, ex.Message)); }
     }
 
     /// <summary>Grava a imagem num arquivo temporário e a entrega ao Paint.</summary>
@@ -80,7 +82,7 @@ internal sealed class OverlayActions
             });
             _fechar(); // entrega ao Paint e sai de cena
         }
-        catch (Exception ex) { _mensagem("Falha ao abrir o Paint: " + ex.Message); }
+        catch (Exception ex) { _mensagem(string.Format(CultureInfo.CurrentCulture, Strings.ErrorPaintFailed, ex.Message)); }
     }
 
     /// <summary>
@@ -91,7 +93,7 @@ internal sealed class OverlayActions
     {
         try
         {
-            _mensagem("Enviando…");
+            _mensagem(Strings.FlashUploading);
 
             // O bitmap precisa sobreviver até a conversão em PNG dentro do
             // serviço: descartar antes do await lançaria ObjectDisposedException.
@@ -102,17 +104,18 @@ internal sealed class OverlayActions
             if (_descartado()) return;
 
             CopyText(url);
-            if (!compartilhar) { _mensagem("URL copiada: " + url); return; }
+            if (!compartilhar) { _mensagem(string.Format(CultureInfo.CurrentCulture, Strings.FlashUrlCopied, url)); return; }
 
             _mensagem(TryOpenUrl(url)
-                ? "Aberto no navegador (URL copiada)"
-                : "URL inválida; não foi aberta. (copiada)");
+                ? Strings.FlashOpenedInBrowser
+                : Strings.FlashInvalidUrl);
         }
         catch (OperationCanceledException) { /* overlay fechado durante o envio */ }
         catch (Exception ex)
         {
             if (!_descartado())
-                _mensagem((compartilhar ? "Falha ao compartilhar: " : "Falha no envio: ") + ex.Message);
+                _mensagem(string.Format(CultureInfo.CurrentCulture,
+                    compartilhar ? Strings.ErrorShareFailed : Strings.ErrorUploadFailed, ex.Message));
         }
     }
 
@@ -124,7 +127,7 @@ internal sealed class OverlayActions
     {
         try
         {
-            _mensagem("Lendo o texto…");
+            _mensagem(Strings.FlashReadingText);
 
             // O bitmap precisa sobreviver até o fim do reconhecimento, que é
             // assíncrono — o mesmo cuidado do envio.
@@ -136,25 +139,27 @@ internal sealed class OverlayActions
 
             if (string.IsNullOrWhiteSpace(texto))
             {
-                _mensagem("Nenhum texto reconhecido na imagem");
+                _mensagem(Strings.FlashNoTextFound);
                 return;
             }
 
             CopyText(texto);
             var linhas = texto.Split('\n').Length;
-            _mensagem(linhas == 1 ? "Texto copiado" : $"Texto copiado ({linhas} linhas)");
+            _mensagem(linhas == 1
+                ? Strings.FlashTextCopied
+                : string.Format(CultureInfo.CurrentCulture, Strings.FlashTextCopiedLines, linhas));
         }
         catch (OperationCanceledException) { /* overlay fechado durante a leitura */ }
         catch (Exception ex)
         {
-            if (!_descartado()) _mensagem("Falha ao ler o texto: " + ex.Message);
+            if (!_descartado()) _mensagem(string.Format(CultureInfo.CurrentCulture, Strings.ErrorOcrFailed, ex.Message));
         }
     }
 
     private void CopyText(string texto)
     {
         try { Clipboard.SetText(texto); }
-        catch (Exception ex) { _mensagem("Área de transferência indisponível: " + ex.Message); }
+        catch (Exception ex) { _mensagem(string.Format(CultureInfo.CurrentCulture, Strings.ErrorClipboardUnavailable, ex.Message)); }
     }
 
     /// <summary>

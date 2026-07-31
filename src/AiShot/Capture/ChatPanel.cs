@@ -1,7 +1,9 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
 using System.Windows.Forms;
 using AiShot.Ai;
+using AiShot.Resources;
 using AiShot.UI;
 
 namespace AiShot.Capture;
@@ -119,7 +121,7 @@ internal sealed class ChatPanel
         try
         {
             Clipboard.SetText(texto);
-            _aviso = "Resposta copiada";
+            _aviso = Strings.ChatAnswerCopied;
         }
         catch (Exception ex)
         {
@@ -185,7 +187,7 @@ internal sealed class ChatPanel
         {
             if (_host.IsDisposed) return;
             // Qualquer falha vira mensagem visível no chat (nunca engolida em silêncio).
-            _pendingError = "Erro: " + ex.Message;
+            _pendingError = string.Format(CultureInfo.CurrentCulture, Strings.ChatError, ex.Message);
         }
         finally
         {
@@ -237,7 +239,7 @@ internal sealed class ChatPanel
         using (var hb = new SolidBrush(Theme.Text))
             g.DrawString(Icons.Sparkle, Icons.Cached(18), hb, inner.Left, inner.Top - 2);
         using (var tb = new SolidBrush(Theme.Text))
-            g.DrawString("Perguntar à IA", HeaderFont, tb, inner.Left + 26, inner.Top);
+            g.DrawString(Strings.ChatTitle, HeaderFont, tb, inner.Left + 26, inner.Top);
 
         // Confirmação da cópia, alinhada à direita do cabeçalho e efêmera.
         if (_aviso is not null && DateTime.UtcNow < _avisoAte)

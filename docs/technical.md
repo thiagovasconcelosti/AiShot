@@ -69,6 +69,19 @@ Every setting can be overridden by an env var prefixed `AISHOT_` (highest preced
 | `AISHOT_HISTORY__ENABLED` | `true`/`false` (off by default) |
 | `AISHOT_HISTORY__MAXITEMS` / `__MAXSIZEMB` | retention limits |
 | `AISHOT_HOTKEY` | e.g. `PrintScreen`, `Ctrl+Alt+S` |
+| `AISHOT_LANGUAGE` | `auto`, `pt`, `en` or `es` |
+
+## Interface language
+
+Three layers, all following the same setting:
+
+- **WinForms** (overlay, tray menu, message boxes) reads `.resx` resources. `Resources/Strings.resx` is the source language (Portuguese); `Strings.en.resx` and `Strings.es.resx` become satellite assemblies. A language with no translation falls back to the neutral file.
+- **Web UI** (Settings) uses a dictionary in `web/src/i18n.ts`, keyed by the culture the C# side already resolved and sends in the config message. The page never picks the language on its own — if it did, the window and the tray could disagree.
+- **Installer** declares `[Languages]` for the three, with its own texts in `[CustomMessages]`.
+
+`Language` defaults to `auto` (follow the system). Changing it in Settings rebuilds the tray menu straight away, so the new language shows without a restart.
+
+Error messages use placeholders (`{0}`) rather than concatenating fixed text with the exception detail — concatenation would leave half the message translated and half in Portuguese. A test fails if a translation drops the placeholder.
 
 ## Capture history
 
@@ -154,6 +167,7 @@ src/AiShot/
   Config/ (AppConfig, SecretProtector)
   History/ (CaptureHistory)
   Ocr/ (TextRecognizer)
+  Resources/ (Strings.resx, Idioma)
   HotKey/ (GlobalHotKey)
   Settings/ (SettingsForm)
   UI/ (Theme, Icons), Assets/ (Phosphor.ttf, app.ico)

@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Idioma-fonte do projeto: português. As traduções ficam em Strings.<cultura>.resx
+    e o .NET escolhe pela cultura corrente, caindo neste arquivo quando não há
+    tradução para o idioma do sistema.
+
+    Marcadores de posição: {0}, {1}… Mensagens de erro NUNCA concatenam texto
+    fixo com o detalhe da exceção — sem o marcador, a tradução ficaria pela
+    metade (metade traduzida, metade em português).
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="TrayCapture" xml:space="preserve">
+    <value>Capturar</value>
+  </data>
+  <data name="TraySettings" xml:space="preserve">
+    <value>Configuración…</value>
+  </data>
+  <data name="TrayStartWithWindows" xml:space="preserve">
+    <value>Iniciar con Windows</value>
+  </data>
+  <data name="TrayHistory" xml:space="preserve">
+    <value>Historial</value>
+  </data>
+  <data name="TrayHistoryEmpty" xml:space="preserve">
+    <value>(vacío)</value>
+  </data>
+  <data name="TrayHistoryOpenFolder" xml:space="preserve">
+    <value>Abrir carpeta</value>
+  </data>
+  <data name="TrayHistoryClear" xml:space="preserve">
+    <value>Limpiar historial</value>
+  </data>
+  <data name="TrayExit" xml:space="preserve">
+    <value>Salir</value>
+  </data>
+  <data name="ToolPen" xml:space="preserve">
+    <value>Lápiz (L)</value>
+  </data>
+  <data name="ToolArrow" xml:space="preserve">
+    <value>Flecha (S)</value>
+  </data>
+  <data name="ToolLine" xml:space="preserve">
+    <value>Línea (R)</value>
+  </data>
+  <data name="ToolRect" xml:space="preserve">
+    <value>Rectángulo (Q)</value>
+  </data>
+  <data name="ToolEllipse" xml:space="preserve">
+    <value>Elipse (E)</value>
+  </data>
+  <data name="ToolText" xml:space="preserve">
+    <value>Texto (T)</value>
+  </data>
+  <data name="ToolBlur" xml:space="preserve">
+    <value>Difuminado (B)</value>
+  </data>
+  <data name="ToolStep" xml:space="preserve">
+    <value>Numerar pasos (N)</value>
+  </data>
+  <data name="ToolColor" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="ToolThickness" xml:space="preserve">
+    <value>Grosor</value>
+  </data>
+  <data name="ToolUndo" xml:space="preserve">
+    <value>Deshacer (Ctrl+Z)</value>
+  </data>
+  <data name="ToolRedo" xml:space="preserve">
+    <value>Rehacer (Ctrl+Y)</value>
+  </data>
+  <data name="ActionCopy" xml:space="preserve">
+    <value>Copiar</value>
+  </data>
+  <data name="ActionOcr" xml:space="preserve">
+    <value>Copiar texto de la imagen</value>
+  </data>
+  <data name="ActionSave" xml:space="preserve">
+    <value>Guardar</value>
+  </data>
+  <data name="ActionPaint" xml:space="preserve">
+    <value>Abrir en Paint</value>
+  </data>
+  <data name="ActionUpload" xml:space="preserve">
+    <value>Subir</value>
+  </data>
+  <data name="ActionShare" xml:space="preserve">
+    <value>Compartir</value>
+  </data>
+  <data name="ActionAskAi" xml:space="preserve">
+    <value>Preguntar a la IA</value>
+  </data>
+  <data name="ActionClose" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="FlashCopied" xml:space="preserve">
+    <value>Copiado</value>
+  </data>
+  <data name="FlashUploading" xml:space="preserve">
+    <value>Subiendo…</value>
+  </data>
+  <data name="FlashReadingText" xml:space="preserve">
+    <value>Leyendo el texto…</value>
+  </data>
+  <data name="FlashTextCopied" xml:space="preserve">
+    <value>Texto copiado</value>
+  </data>
+  <data name="FlashTextCopiedLines" xml:space="preserve">
+    <value>Texto copiado ({0} líneas)</value>
+  </data>
+  <data name="FlashNoTextFound" xml:space="preserve">
+    <value>No se reconoció texto en la imagen</value>
+  </data>
+  <data name="FlashUrlCopied" xml:space="preserve">
+    <value>URL copiada: {0}</value>
+  </data>
+  <data name="FlashOpenedInBrowser" xml:space="preserve">
+    <value>Abierto en el navegador (URL copiada)</value>
+  </data>
+  <data name="FlashInvalidUrl" xml:space="preserve">
+    <value>URL inválida; no se abrió. (copiada)</value>
+  </data>
+  <data name="ErrorClipboardUnavailable" xml:space="preserve">
+    <value>Portapapeles no disponible: {0}</value>
+  </data>
+  <data name="ErrorSaveFailed" xml:space="preserve">
+    <value>No se pudo guardar: {0}</value>
+  </data>
+  <data name="ErrorPaintFailed" xml:space="preserve">
+    <value>No se pudo abrir Paint: {0}</value>
+  </data>
+  <data name="ErrorUploadFailed" xml:space="preserve">
+    <value>Error al subir: {0}</value>
+  </data>
+  <data name="ErrorShareFailed" xml:space="preserve">
+    <value>No se pudo compartir: {0}</value>
+  </data>
+  <data name="ErrorOcrFailed" xml:space="preserve">
+    <value>No se pudo leer el texto: {0}</value>
+  </data>
+  <data name="ChatTitle" xml:space="preserve">
+    <value>Preguntar a la IA</value>
+  </data>
+  <data name="ChatAnswerCopied" xml:space="preserve">
+    <value>Respuesta copiada</value>
+  </data>
+  <data name="ChatError" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="AppName" xml:space="preserve">
+    <value>AiShot</value>
+  </data>
+  <data name="TitleCaptureError" xml:space="preserve">
+    <value>AiShot — error en la captura</value>
+  </data>
+  <data name="TitleUnexpectedError" xml:space="preserve">
+    <value>AiShot — error inesperado</value>
+  </data>
+  <data name="SettingsWindowTitle" xml:space="preserve">
+    <value>AiShot — Configuración</value>
+  </data>
+  <data name="ErrorSettingsUiFailed" xml:space="preserve">
+    <value>No se pudo cargar la interfaz: {0}</value>
+  </data>
+  <data name="ErrorSettingsSaveFailed" xml:space="preserve">
+    <value>No se pudo guardar la configuración: {0}</value>
+  </data>
+  <data name="ErrorUpdateFailed" xml:space="preserve">
+    <value>Error al actualizar: {0}</value>
+  </data>
+  <data name="HotKeyRegisterFailed" xml:space="preserve">
+    <value>No se pudo registrar el atajo '{0}'. Puede estar en uso.</value>
+  </data>
+  <data name="HotKeyRecovered" xml:space="preserve">
+    <value>El atajo '{0}' había dejado de responder y fue restablecido.</value>
+  </data>
+  <data name="HistoryCaptureRestored" xml:space="preserve">
+    <value>Captura copiada al portapapeles.</value>
+  </data>
+  <data name="ErrorHistoryRestoreFailed" xml:space="preserve">
+    <value>No se pudo recuperar la captura.
+
+{0}</value>
+  </data>
+  <data name="HistoryClearConfirm" xml:space="preserve">
+    <value>¿Borrar todas las capturas guardadas en el historial?
+
+Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="StartupToggleFailed" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+</root>

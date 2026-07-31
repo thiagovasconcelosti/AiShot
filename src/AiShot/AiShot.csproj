@@ -38,6 +38,20 @@
     <EmbeddedResource Include="Assets\app.ico" />
   </ItemGroup>
 
+  <!-- Strings da interface. O gerador cria Resources/Strings.Designer.cs a
+       partir do .resx neutro; as traduções (Strings.<cultura>.resx) viram
+       assemblies satélite e o .NET escolhe pela cultura corrente. -->
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\Strings.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+      <StronglyTypedFileName>$(IntermediateOutputPath)\Strings.Designer.cs</StronglyTypedFileName>
+      <StronglyTypedLanguage>CSharp</StronglyTypedLanguage>
+      <StronglyTypedNamespace>AiShot.Resources</StronglyTypedNamespace>
+      <StronglyTypedClassName>Strings</StronglyTypedClassName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <!-- UI web (React + shadcn) embutida: painel de Configurações -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\web\dist\**\*">

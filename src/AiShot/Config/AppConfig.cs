@@ -10,6 +10,12 @@ namespace AiShot.Config;
 public sealed class AppConfig
 {
     public string HotKey { get; set; } = "PrintScreen";
+
+    /// <summary>
+    /// Idioma da interface: "auto" (segue o sistema), "pt", "en" ou "es".
+    /// Idiomas sem tradução caem no português, o idioma-fonte do projeto.
+    /// </summary>
+    public string Language { get; set; } = Resources.Idioma.Automatico;
     /// <summary>Fecha o overlay automaticamente após copiar a imagem.</summary>
     public bool CloseOnCopy { get; set; } = false;
     public AiConfig Ai { get; set; } = new();
@@ -115,6 +121,7 @@ public sealed class AppConfig
         var c = new AppConfig
         {
             HotKey = HotKey,
+            Language = Language,
             CloseOnCopy = CloseOnCopy,
             Ai = new AiConfig
             {
@@ -162,6 +169,7 @@ public sealed class AppConfig
         string? E(string k) => Environment.GetEnvironmentVariable("AISHOT_" + k);
 
         HotKey = E("HOTKEY") ?? HotKey;
+        Language = E("LANGUAGE") ?? Language;
         var closeCopy = E("CLOSEONCOPY");
         if (closeCopy is not null && bool.TryParse(closeCopy, out var cc)) CloseOnCopy = cc;
 

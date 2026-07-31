@@ -5,6 +5,13 @@ export type Vision = Endpoint & { enabled: boolean }
 export type Config = {
   appVersion?: string
   hotKey: string
+  /** Idioma escolhido: "auto", "pt", "en" ou "es". */
+  language: string
+  /**
+   * Idioma que o C# de fato aplicou. Com "auto" a página não teria como saber
+   * qual idioma o sistema escolheu, então quem resolve é o lado nativo.
+   */
+  resolvedLanguage?: string
   closeOnCopy: boolean
   ai: {
     provider: string
@@ -82,6 +89,8 @@ function mockConfig(): Config {
   return {
     appVersion: "0.0.0-dev",
     hotKey: "PrintScreen",
+    language: "auto",
+    resolvedLanguage: navigator.language.slice(0, 2),
     closeOnCopy: false,
     ai: {
       provider: "openai",

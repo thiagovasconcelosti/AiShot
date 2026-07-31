@@ -1,4 +1,5 @@
 using System.Drawing;
+using AiShot.Resources;
 using AiShot.UI;
 
 namespace AiShot.Capture;
@@ -16,64 +17,72 @@ internal readonly record struct ToolbarLayoutResult(
 /// </summary>
 internal static class ToolbarLayout
 {
-    private static readonly (string glyph, string id, string tip, Tool tool)[] Tools =
-    {
-        (Icons.Pencil, "pen", "Lápis (L)", Tool.Pen),
-        (Icons.Arrow, "arrow", "Seta (S)", Tool.Arrow),
-        (Icons.Line, "line", "Linha (R)", Tool.Line),
-        (Icons.Rectangle, "rect", "Retângulo (Q)", Tool.Rect),
-        (Icons.Circle, "ellipse", "Elipse (E)", Tool.Ellipse),
-        (Icons.Text, "text", "Texto (T)", Tool.Text),
+    // As dicas são lidas a cada cálculo, não guardadas em campo estático: elas
+    // vêm dos recursos, e uma cópia congelada na primeira chamada continuaria
+    // no idioma antigo depois de o usuário trocar de idioma.
+    private static (string glyph, string id, string tip, Tool tool)[] Tools =>
+    [
+        (Icons.Pencil, "pen", Strings.ToolPen, Tool.Pen),
+        (Icons.Arrow, "arrow", Strings.ToolArrow, Tool.Arrow),
+        (Icons.Line, "line", Strings.ToolLine, Tool.Line),
+        (Icons.Rectangle, "rect", Strings.ToolRect, Tool.Rect),
+        (Icons.Circle, "ellipse", Strings.ToolEllipse, Tool.Ellipse),
+        (Icons.Text, "text", Strings.ToolText, Tool.Text),
         // Glifos desenhados pelo ToolbarRenderer: o conjunto de ícones embutido
         // não traz um símbolo próprio para pixelização nem para numeração.
-        ("", "blur", "Borrão (B)", Tool.Blur),
-        ("", "step", "Numerar passos (N)", Tool.Step),
-        (Icons.Palette, "color", "Cor", Tool.None),
-        ("", "thickness", "Espessura", Tool.None),
-        (Icons.Undo, "undo", "Desfazer (Ctrl+Z)", Tool.None),
-        (Icons.Redo, "redo", "Refazer (Ctrl+Y)", Tool.None),
-    };
+        ("", "blur", Strings.ToolBlur, Tool.Blur),
+        ("", "step", Strings.ToolStep, Tool.Step),
+        (Icons.Palette, "color", Strings.ToolColor, Tool.None),
+        ("", "thickness", Strings.ToolThickness, Tool.None),
+        (Icons.Undo, "undo", Strings.ToolUndo, Tool.None),
+        (Icons.Redo, "redo", Strings.ToolRedo, Tool.None),
+    ];
 
-    private static readonly (string glyph, string id, string tip)[] Actions =
-    {
-        (Icons.Copy, "copy", "Copiar"),
-        (Icons.ScanText, "ocr", "Copiar texto da imagem"),
-        (Icons.Save, "save", "Salvar"),
-        (Icons.Paint, "paint", "Abrir no Paint"),
-        (Icons.Upload, "upload", "Upload"),
-        (Icons.Share, "share", "Compartilhar"),
-        (Icons.Chat, "ai", "Perguntar à IA"),
-        (Icons.Close, "close", "Fechar"),
-    };
+    private static (string glyph, string id, string tip)[] Actions =>
+    [
+        (Icons.Copy, "copy", Strings.ActionCopy),
+        (Icons.ScanText, "ocr", Strings.ActionOcr),
+        (Icons.Save, "save", Strings.ActionSave),
+        (Icons.Paint, "paint", Strings.ActionPaint),
+        (Icons.Upload, "upload", Strings.ActionUpload),
+        (Icons.Share, "share", Strings.ActionShare),
+        (Icons.Chat, "ai", Strings.ActionAskAi),
+        (Icons.Close, "close", Strings.ActionClose),
+    ];
 
     public static ToolbarLayoutResult Compute(Rectangle sel, Rectangle mon, Tool tool, bool paletteOpen, bool thicknessOpen)
     {
+        // Materializa uma vez por cálculo: as propriedades montam o array a cada
+        // acesso, e o método as consulta várias vezes durante um mesmo quadro.
+        var ferramentas = Tools;
+        var acoes = Actions;
+
         int bs = Theme.ButtonSize, gap = 2, pad = Theme.BarPad;
 
         // --- Barra lateral ---
         int panelW = bs + pad * 2;
-        int panelH = Tools.Length * bs + (Tools.Length - 1) * gap + pad * 2;
+        int panelH = ferramentas.Length * bs + (ferramentas.Length - 1) * gap + pad * 2;
         int sx = sel.Right + 12;
         if (sx + panelW > mon.Right - 8) sx = sel.Left - 12 - panelW;
         if (sx < mon.Left + 8) sx = mon.Right - 8 - panelW; // último recurso
         int sy = Math.Max(mon.Top + 8, Math.Min(sel.Top, mon.Bottom - panelH - 8));
         var sidePanel = new Rectangle(sx, sy, panelW, panelH);
 
-        var sideButtons = new List<IconButton>(Tools.Length);
-        for (int i = 0; i < Tools.Length; i++)
+        var sideButtons = new List<IconButton>(ferramentas.Length);
+        for (int i = 0; i < ferramentas.Length; i++)
         {
             var r = new Rectangle(sx + pad, sy + pad + i * (bs + gap), bs, bs);
-            bool active = Tools[i].id switch
+            bool active = ferramentas[i].id switch
             {
                 "color" => paletteOpen,
                 "thickness" => thicknessOpen,
-                _ => tool == Tools[i].tool && Tools[i].tool != Tool.None,
+                _ => tool == ferramentas[i].tool && ferramentas[i].tool != Tool.None,
             };
-            sideButtons.Add(new IconButton(r, Tools[i].glyph, Tools[i].id, active, Tools[i].tip));
+            sideButtons.Add(new IconButton(r, ferramentas[i].glyph, ferramentas[i].id, active, ferramentas[i].tip));
         }
 
         // --- Barra inferior ---
-        int bw = Actions.Length * bs + (Actions.Length - 1) * gap + pad * 2;
+        int bw = acoes.Length * bs + (acoes.Length - 1) * gap + pad * 2;
         int bx = sel.Left + (sel.Width - bw) / 2;
         bx = Math.Max(mon.Left + 8, Math.Min(bx, mon.Right - bw - 8));
         int bh = bs + pad * 2;
@@ -116,11 +125,11 @@ internal static class ToolbarLayout
             }
         }
 
-        var bottomButtons = new List<IconButton>(Actions.Length);
-        for (int i = 0; i < Actions.Length; i++)
+        var bottomButtons = new List<IconButton>(acoes.Length);
+        for (int i = 0; i < acoes.Length; i++)
         {
             var r = new Rectangle(bx + pad + i * (bs + gap), by + pad, bs, bs);
-            bottomButtons.Add(new IconButton(r, Actions[i].glyph, Actions[i].id, false, Actions[i].tip));
+            bottomButtons.Add(new IconButton(r, acoes[i].glyph, acoes[i].id, false, acoes[i].tip));
         }
 
         return new ToolbarLayoutResult(sidePanel, sideButtons, botPanel, bottomButtons);
