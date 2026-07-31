@@ -75,6 +75,80 @@ public sealed class AiService : IAiService
         }
     }
 
+    /// <summary>
+    /// Como <see cref="CompleteWithFallbackAsync"/>, mas entregando o texto em
+    /// pedaços. Devolve o texto completo ao final.
+    /// </summary>
+    /// <remarks>
+    /// Uma falha no meio do fluxo deixa o texto pela metade. Antes de tentar o
+    /// fallback, o parcial é descartado (<paramref name="aoReceber"/> recebe
+    /// string vazia) e o segundo provedor recomeça do zero: emendar o começo de
+    /// uma resposta no fim de outra produziria um texto que nenhum dos dois
+    /// escreveu.
+    /// </remarks>
+    private Task<string> StreamWithFallbackAsync(
+        AiRequest req, Action<string> aoReceber, CancellationToken ct)
+    {
+        var ai = _cfg.Ai;
+        var fb = ai.Fallback;
+
+        return StreamComFallbackAsync(
+            () => AiProviderFactory.Create(ai.Provider, ai.ApiKey, ai.Model, ai.BaseUrl, _http),
+            fb is not null && !string.IsNullOrWhiteSpace(fb.ApiKey)
+                ? () => AiProviderFactory.Create(fb.Provider, fb.ApiKey, fb.Model, fb.BaseUrl, _http)
+                : null,
+            req, aoReceber, ct);
+    }
+
+    /// <summary>
+    /// Núcleo do fallback com streaming, independente da configuração — os
+    /// providers chegam prontos para que o comportamento possa ser verificado
+    /// sem rede.
+    /// </summary>
+    internal static async Task<string> StreamComFallbackAsync(
+        Func<IAiProvider> principal,
+        Func<IAiProvider>? fallback,
+        AiRequest req,
+        Action<string> aoReceber,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await AcumularAsync(principal(), req, aoReceber, ct).ConfigureAwait(false);
+        }
+        catch (Exception mainEx) when (mainEx is not OperationCanceledException)
+        {
+            if (fallback is not null)
+            {
+                aoReceber(""); // descarta o parcial do principal
+                try
+                {
+                    return await AcumularAsync(fallback(), req, aoReceber, ct).ConfigureAwait(false);
+                }
+                catch (Exception fbEx) when (fbEx is not OperationCanceledException)
+                {
+                    throw new InvalidOperationException(
+                        $"IA principal e fallback falharam. Principal: {mainEx.Message} | Fallback: {fbEx.Message}", fbEx);
+                }
+            }
+            throw new InvalidOperationException(
+                $"IA principal falhou e não há fallback configurado. {mainEx.Message}", mainEx);
+        }
+    }
+
+    /// <summary>Consome o fluxo do provedor, notificando o texto acumulado a cada pedaço.</summary>
+    private static async Task<string> AcumularAsync(
+        IAiProvider provider, AiRequest req, Action<string> aoReceber, CancellationToken ct)
+    {
+        var texto = new System.Text.StringBuilder();
+        await foreach (var pedaco in provider.StreamAsync(req, ct).ConfigureAwait(false))
+        {
+            texto.Append(pedaco);
+            aoReceber(texto.ToString());
+        }
+        return texto.ToString();
+    }
+
     // ---------- Conversa contínua ----------
 
     private sealed class ChatSession : IAiChatSession
@@ -94,6 +168,29 @@ public sealed class AiService : IAiService
         public IReadOnlyList<ChatMessage> History => _history;
 
         public async Task<string> SendAsync(string userMessage, CancellationToken ct = default)
+        {
+            var req = await PrepararTurnoAsync(userMessage, ct).ConfigureAwait(false);
+            var resp = await _owner.CompleteWithFallbackAsync(req, ct).ConfigureAwait(false);
+
+            _history.Add(new ChatMessage("assistant", resp.Text));
+            return resp.Text;
+        }
+
+        public async Task<string> SendStreamingAsync(
+            string userMessage, Action<string> aoReceber, CancellationToken ct = default)
+        {
+            var req = await PrepararTurnoAsync(userMessage, ct).ConfigureAwait(false);
+            var texto = await _owner.StreamWithFallbackAsync(req, aoReceber, ct).ConfigureAwait(false);
+
+            _history.Add(new ChatMessage("assistant", texto));
+            return texto;
+        }
+
+        /// <summary>
+        /// Registra o turno do usuário, roda a visão na primeira mensagem e monta
+        /// a requisição com o histórico completo.
+        /// </summary>
+        private async Task<AiRequest> PrepararTurnoAsync(string userMessage, CancellationToken ct)
         {
             // Sem visão: a imagem viaja no 1º turno de user; como enviamos o histórico
             // inteiro a cada chamada, a API preserva o contexto visual nos turnos
@@ -118,11 +215,7 @@ public sealed class AiService : IAiService
                 messages = _history.Select(m => m.ImagePng is null ? m : m with { ImagePng = null }).ToArray();
             }
 
-            var req = new AiRequest(messages, systemPrompt, MaxTokens: TokensDaResposta);
-            var resp = await _owner.CompleteWithFallbackAsync(req, ct).ConfigureAwait(false);
-
-            _history.Add(new ChatMessage("assistant", resp.Text));
-            return resp.Text;
+            return new AiRequest(messages, systemPrompt, MaxTokens: TokensDaResposta);
         }
     }
 }
