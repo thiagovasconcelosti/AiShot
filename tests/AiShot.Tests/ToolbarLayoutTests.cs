@@ -72,6 +72,21 @@ public class ToolbarLayoutTests
     }
 
     [Fact]
+    public void Compute_ComSelecaoColadaNaBordaEsquerda_DesviaAsBarrasEmVezDeSobrepor()
+    {
+        // Seleção estreita encostada na esquerda: a lateral vai para a direita
+        // dela e a faixa livre à esquerda fica mais estreita que a barra
+        // inferior. Sem desvio vertical, o clamp horizontal traz a barra de
+        // volta para cima da lateral.
+        var layout = Calcular(new Rectangle(0, 440, 300, 200));
+
+        Assert.False(layout.SidePanel.IntersectsWith(layout.BottomPanel),
+            $"A barra lateral {layout.SidePanel} colidiu com a inferior {layout.BottomPanel}.");
+        Assert.True(DentroDe(layout.BottomPanel, Monitor),
+            $"A barra inferior {layout.BottomPanel} saiu do monitor {Monitor}.");
+    }
+
+    [Fact]
     public void Compute_ComSelecaoMaiorQueOMonitor_AindaMantemAsBarrasDentro()
     {
         var layout = Calcular(new Rectangle(-500, -500, 3000, 2000));
@@ -110,7 +125,7 @@ public class ToolbarLayoutTests
         var layout = Calcular(new Rectangle(800, 400, 300, 200));
 
         Assert.Equal(
-            new[] { "copy", "save", "paint", "upload", "share", "ai", "close" },
+            new[] { "copy", "ocr", "save", "paint", "upload", "share", "ai", "close" },
             layout.BottomButtons.Select(b => b.Id));
     }
 

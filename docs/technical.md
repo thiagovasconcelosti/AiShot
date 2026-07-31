@@ -80,6 +80,26 @@ The tray menu lists the stored captures with thumbnails; clicking one copies it 
 
 Uninstalling asks separately about the history and the configuration. A silent uninstall (`/VERYSILENT`) deletes neither.
 
+## Text recognition (OCR)
+
+The **Copy text from image** toolbar button extracts the text in the capture and
+puts it on the clipboard. It runs on `Windows.Media.Ocr`, the recognizer built
+into Windows: **the image never leaves the machine and the feature works with no
+network**. In a capture tool that matters — the screenshot is usually of the very
+error message, code snippet or document the user would rather not send out.
+
+Requires a recognition language installed in Windows (Settings → Time & Language
+→ Language). Without one, the action reports it instead of failing silently;
+`TextRecognizer.Disponivel` answers that question up front.
+
+Lines are joined preserving the line breaks rather than using `OcrResult.Text`,
+which flattens everything onto one line — the break is what keeps a pasted code
+snippet readable.
+
+This is why the project targets `net10.0-windows10.0.19041.0`: the OS version in
+the target framework is what unlocks the WinRT APIs. The app still runs on older
+Windows, just without this feature.
+
 ## AI pipeline
 
 `AiService.AskAboutImageAsync` / `IAiChatSession`:
@@ -133,6 +153,7 @@ src/AiShot/
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)
   History/ (CaptureHistory)
+  Ocr/ (TextRecognizer)
   HotKey/ (GlobalHotKey)
   Settings/ (SettingsForm)
   UI/ (Theme, Icons), Assets/ (Phosphor.ttf, app.ico)

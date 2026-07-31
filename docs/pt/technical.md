@@ -80,6 +80,26 @@ O menu da bandeja lista as capturas guardadas com miniatura; clicar em uma copia
 
 A desinstalação pergunta separadamente sobre o histórico e sobre a configuração. Uma desinstalação silenciosa (`/VERYSILENT`) não apaga nenhum dos dois.
 
+## Reconhecimento de texto (OCR)
+
+O botão **Copiar texto da imagem** extrai o texto da captura e o coloca na área
+de transferência. Usa o `Windows.Media.Ocr`, o reconhecedor do próprio Windows:
+**a imagem não sai da máquina e o recurso funciona sem rede**. Numa ferramenta de
+captura isso importa — o print costuma ser justamente da mensagem de erro, do
+trecho de código ou do documento que o usuário não quer mandar para fora.
+
+Exige um idioma de reconhecimento instalado no Windows (Configurações → Hora e
+Idioma → Idioma). Sem nenhum, a ação avisa em vez de falhar em silêncio;
+`TextRecognizer.Disponivel` responde isso antes de oferecer o recurso.
+
+As linhas são unidas preservando a quebra, em vez de usar `OcrResult.Text`, que
+achata tudo numa linha só — a quebra é o que mantém um trecho de código colado
+legível.
+
+É por isso que o projeto tem como alvo `net10.0-windows10.0.19041.0`: a versão do
+sistema no alvo é o que destrava as APIs WinRT. O aplicativo continua rodando em
+versões anteriores do Windows, apenas sem esse recurso.
+
 ## Pipeline de IA
 
 `AiService.AskAboutImageAsync` / `IAiChatSession`:
@@ -133,6 +153,7 @@ src/AiShot/
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)
   History/ (CaptureHistory)
+  Ocr/ (TextRecognizer)
   HotKey/ (GlobalHotKey)
   Settings/ (SettingsForm)
   UI/ (Theme, Icons), Assets/ (Phosphor.ttf, app.ico)

@@ -51,3 +51,7 @@ dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 \
 ## License
 
 [MIT](LICENSE) © 2026 Thiago Vasconcelos
+
+Third-party components bundled with the application — Phosphor Icons, the
+WebView2 SDK, the .NET runtime and the packages in the settings UI — are listed
+with their copyright notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

@@ -2,7 +2,13 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- A versão do SO no alvo destrava as APIs WinRT (Windows.Media.Ocr, usado
+         no reconhecimento de texto). 10.0.19041 é o Windows 10 2004, piso da
+         API de OCR; o app continua rodando em versões anteriores, apenas sem
+         o recurso (ver TextRecognizer.Disponivel). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- Sem isso o MSBuild exige que a máquina tenha o SDK exato do alvo. -->
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

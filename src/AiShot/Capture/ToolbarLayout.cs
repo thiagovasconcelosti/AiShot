@@ -37,6 +37,7 @@ internal static class ToolbarLayout
     private static readonly (string glyph, string id, string tip)[] Actions =
     {
         (Icons.Copy, "copy", "Copiar"),
+        (Icons.ScanText, "ocr", "Copiar texto da imagem"),
         (Icons.Save, "save", "Salvar"),
         (Icons.Paint, "paint", "Abrir no Paint"),
         (Icons.Upload, "upload", "Upload"),
@@ -81,13 +82,38 @@ internal static class ToolbarLayout
         by = Math.Max(mon.Top + 8, Math.Min(by, mon.Bottom - bh - 8));   // clampa no monitor (fullscreen: sobrepõe)
         var botPanel = new Rectangle(bx, by, bw, bh);
 
-        // Evita sobrepor a toolbar lateral: empurra pro lado oposto a ela.
+        // Evita sobrepor a toolbar lateral: primeiro tenta empurrar para o lado
+        // oposto a ela.
         if (botPanel.IntersectsWith(sidePanel))
         {
             bool sideRight = sidePanel.Left >= sel.Right;
-            bx = sideRight ? sidePanel.Left - 8 - bw : sidePanel.Right + 8;
-            bx = Math.Max(mon.Left + 8, Math.Min(bx, mon.Right - bw - 8));
-            botPanel = new Rectangle(bx, by, bw, bs + pad * 2);
+            int alvo = sideRight ? sidePanel.Left - 8 - bw : sidePanel.Right + 8;
+            int bxLateral = Math.Max(mon.Left + 8, Math.Min(alvo, mon.Right - bw - 8));
+            botPanel = new Rectangle(bxLateral, by, bw, bh);
+
+            // O clamp acima pode trazer a barra de volta para cima da lateral
+            // quando a faixa livre é mais estreita que ela — aí não há saída
+            // horizontal, e a barra desvia por cima ou por baixo da lateral.
+            if (botPanel.IntersectsWith(sidePanel))
+            {
+                int acima = sidePanel.Top - 8 - bh;
+                int abaixo = sidePanel.Bottom + 8;
+
+                int byDesviado;
+                if (acima >= mon.Top + 8) byDesviado = acima;
+                else if (abaixo + bh <= mon.Bottom - 8) byDesviado = abaixo;
+                // Lateral ocupa a altura toda: sobrepor é o menor dos males, e
+                // manter a barra dentro do monitor importa mais.
+                else byDesviado = by;
+
+                botPanel = new Rectangle(bx, byDesviado, bw, bh);
+                bx = botPanel.X;
+                by = botPanel.Y;
+            }
+            else
+            {
+                bx = bxLateral;
+            }
         }
 
         var bottomButtons = new List<IconButton>(Actions.Length);

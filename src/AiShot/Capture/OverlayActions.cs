@@ -116,6 +116,41 @@ internal sealed class OverlayActions
         }
     }
 
+    /// <summary>
+    /// Reconhece o texto da imagem e o copia. Roda no próprio Windows, sem
+    /// enviar a imagem para fora.
+    /// </summary>
+    public async Task CopyTextFromImageAsync(CancellationToken ct)
+    {
+        try
+        {
+            _mensagem("Lendo o texto…");
+
+            // O bitmap precisa sobreviver até o fim do reconhecimento, que é
+            // assíncrono — o mesmo cuidado do envio.
+            string texto;
+            using (var bmp = _renderizar())
+                texto = await Ocr.TextRecognizer.ExtrairAsync(bmp, ct).ConfigureAwait(true);
+
+            if (_descartado()) return;
+
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                _mensagem("Nenhum texto reconhecido na imagem");
+                return;
+            }
+
+            CopyText(texto);
+            var linhas = texto.Split('\n').Length;
+            _mensagem(linhas == 1 ? "Texto copiado" : $"Texto copiado ({linhas} linhas)");
+        }
+        catch (OperationCanceledException) { /* overlay fechado durante a leitura */ }
+        catch (Exception ex)
+        {
+            if (!_descartado()) _mensagem("Falha ao ler o texto: " + ex.Message);
+        }
+    }
+
     private void CopyText(string texto)
     {
         try { Clipboard.SetText(texto); }
