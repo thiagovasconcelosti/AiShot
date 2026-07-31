@@ -28,6 +28,9 @@ public sealed class CaptureOverlay : Form
     /// <summary>Estado das anotações: formas, ferramenta, cor, espessura e histórico.</summary>
     private readonly AnnotationController _anotacoes = new();
 
+    /// <summary>Percurso do foco do teclado pelos botões das barras.</summary>
+    private readonly KeyboardFocus _foco = new();
+
     /// <summary>Dica de ferramenta, mensagem transitória e tamanho da seleção.</summary>
     private readonly OverlayChrome _chrome = new();
 
@@ -109,8 +112,31 @@ public sealed class CaptureOverlay : Form
         {
             if (_textInput is not null) { CancelTextInput(); Invalidate(); return; }
             if (_chat.IsOpen) { _chat.Close(); return; }
+            // Esc devolve o foco antes de fechar: quem navega por teclado pode
+            // querer sair do percurso sem abandonar a captura.
+            if (_foco.TemFoco) { _foco.Limpar(); Invalidate(); return; }
             Close();
             return;
+        }
+
+        // Navegação por teclado nas barras. Só no modo de edição — durante a
+        // seleção não há botões — e fora dos campos de texto, onde Tab e Espaço
+        // pertencem à digitação.
+        if (_mode == Mode.Editing && !EditandoTexto)
+        {
+            if (e.KeyCode == Keys.Tab)
+            {
+                AtualizarPercursoDoFoco();
+                if (_foco.Mover(paraTras: e.Shift)) { e.SuppressKeyPress = true; Invalidate(); }
+                return;
+            }
+
+            if ((e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space) && _foco.Focado is { } alvo)
+            {
+                e.SuppressKeyPress = true;
+                AcionarBotaoFocado(alvo);
+                return;
+            }
         }
         // Ctrl+Shift+Z e Ctrl+Y refazem: as duas combinações são usuais, e
         // aceitar ambas evita que o usuário precise descobrir qual é a nossa.
@@ -319,6 +345,40 @@ public sealed class CaptureOverlay : Form
         }
     }
 
+    /// <summary>
+    /// Árvore de acessibilidade do overlay. Sem isso não há nada que o Narrador
+    /// possa anunciar: os botões são pixels desenhados, não controles.
+    /// </summary>
+    protected override AccessibleObject CreateAccessibilityInstance() =>
+        new OverlayAccessibility(
+            this,
+            botoes: () => _bottomButtons.Concat(_sideButtons).ToArray(),
+            focado: () => _foco.Focado,
+            acionar: AcionarBotaoFocado,
+            origemNaTela: () => SystemInformation.VirtualScreen.Location);
+
+    /// <summary>
+    /// Sincroniza o percurso do foco com os botões desenhados no último quadro.
+    /// </summary>
+    /// <remarks>
+    /// As barras são remontadas a cada render e mudam de conteúdo conforme a
+    /// paleta abre ou fecha. Atualizar antes de mover garante que Tab caminhe
+    /// pelo que está de fato na tela.
+    /// </remarks>
+    private void AtualizarPercursoDoFoco() =>
+        _foco.Atualizar(_bottomButtons.Select(b => b.Id), _sideButtons.Select(b => b.Id));
+
+    /// <summary>Aciona por teclado o botão que está com o foco.</summary>
+    private void AcionarBotaoFocado(string id)
+    {
+        // Os menus suspensos (cor, espessura) precisam do retângulo do botão
+        // para se posicionar; os demais ignoram o parâmetro.
+        var lateral = _sideButtons.FirstOrDefault(b => b.Id == id);
+        if (lateral is not null) { OnSideAction(id, lateral.Rect); return; }
+
+        if (_bottomButtons.Any(b => b.Id == id)) OnBottomAction(id);
+    }
+
     private void Flash(string msg) { _chrome.Flash(msg); Invalidate(); }
 
     private void UpdateHoverTip(Point p)
@@ -472,7 +532,12 @@ public sealed class CaptureOverlay : Form
         _sideButtons.Clear(); _sideButtons.AddRange(layout.SideButtons);
         _bottomButtons.Clear(); _bottomButtons.AddRange(layout.BottomButtons);
 
-        ToolbarRenderer.DrawToolbars(g, layout, _anotacoes.Color);
+        // O percurso do foco acompanha o que acabou de ser montado: as barras
+        // mudam de conteúdo entre quadros e o foco precisa seguir os botões
+        // reais, não os do quadro anterior.
+        AtualizarPercursoDoFoco();
+
+        ToolbarRenderer.DrawToolbars(g, layout, _anotacoes.Color, _foco.Focado);
     }
 
     private void DrawPalette(Graphics g)

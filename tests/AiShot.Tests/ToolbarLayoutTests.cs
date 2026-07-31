@@ -130,6 +130,19 @@ public class ToolbarLayoutTests
     }
 
     [Fact]
+    public void Compute_TodoBotaoTemNomeParaOLeitorDeTela()
+    {
+        // A dica é o que a árvore de acessibilidade anuncia (ver
+        // OverlayAccessibility). Um botão sem dica seria anunciado sem nome,
+        // e quem depende do Narrador não saberia o que está focando.
+        var layout = Calcular(new Rectangle(800, 400, 300, 200));
+
+        Assert.All(layout.SideButtons.Concat(layout.BottomButtons), b =>
+            Assert.False(string.IsNullOrWhiteSpace(b.Tip),
+                $"O botão '{b.Id}' não tem nome para o leitor de tela."));
+    }
+
+    [Fact]
     public void Compute_NaoRepeteIdentificadoresDeBotao()
     {
         var layout = Calcular(new Rectangle(800, 400, 300, 200));
