@@ -17,6 +17,10 @@ Clone do Lightshot/prntscr voltado para IA, para Windows. Captura uma região da
 - **Copiar** (área de transferência), **Salvar** (PNG/JPG), **Abrir no Paint**, **Upload** e **Compartilhar** (freeimage.host / imgbb).
 - **Perguntar à IA** sobre o print — chat contínuo, provedor `anthropic` ou `openai`, **fallback** automático e **IA de visão** opcional. Com a visão ativa, ela descreve a imagem *antes* da IA principal responder.
 
+## Extensão para navegador
+
+Prefere capturar direto do navegador? A **[AiShot para Chrome](https://github.com/thiagovasconcelosti/AIShot-Chrome-Extension)** traz o mesmo fluxo de capturar-anotar-perguntar à IA numa extensão Manifest V3 — captura de região, área visível e página inteira (costurada por scroll), atalhos de teclado, e a mesma linguagem visual do app desktop. Estágio inicial: captura e exportação já funcionam, o desenho de anotações e o chat com IA estão a caminho — veja o [roadmap](https://github.com/thiagovasconcelosti/AIShot-Chrome-Extension/blob/master/ROADMAP.md).
+
 ## Instalação
 
 **Chocolatey** (após aprovação):

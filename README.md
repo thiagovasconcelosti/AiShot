@@ -17,6 +17,10 @@ AI-focused clone of Lightshot/prntscr for Windows. Capture a screen region, anno
 - **Copy** (clipboard), **Save** (PNG/JPG), **Open in Paint**, **Upload** & **Share** (freeimage.host / imgbb).
 - **Ask AI** about the screenshot — continuous chat, provider `anthropic` or `openai`, automatic **fallback** and optional **vision AI**. When vision is on, it describes the image *before* the main AI answers.
 
+## Browser Extension
+
+Prefer capturing straight from the browser? **[AiShot for Chrome](https://github.com/thiagovasconcelosti/AIShot-Chrome-Extension)** brings the same capture-annotate-ask-AI workflow into a Manifest V3 extension — region, visible-area and full-page (scroll-stitched) capture, keyboard shortcuts, and the same visual language as the desktop app. Early stage: capture and export work today, annotation drawing and the AI chat are landing next — check the [roadmap](https://github.com/thiagovasconcelosti/AIShot-Chrome-Extension/blob/master/ROADMAP.md).
+
 ## Install
 
 **Chocolatey** (once approved):
