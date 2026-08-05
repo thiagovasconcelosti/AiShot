@@ -17,9 +17,16 @@ web/dist/
 .milestones/
 *.local.md
 
+# Configuração e skills locais do Claude Code (ferramental de quem desenvolve,
+# não do projeto). O processo de release em si está documentado no RELEASING.md.
+.claude/
+
 # Saída dos testes (relatórios .trx, cobertura)
 artefatos/
 TestResults/
+
+# Extensão de navegador — mora em repositório próprio (Plugin-AIShot), não neste.
+Plugin AIShot/
 
 # Gerados pelo fluxo de release a partir dos .template correspondentes —
 # a versão e o checksum só existem depois que o instalador é compilado.
