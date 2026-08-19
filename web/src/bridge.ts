@@ -13,6 +13,7 @@ export type Config = {
    */
   resolvedLanguage?: string
   closeOnCopy: boolean
+  disableScreenDimming: boolean
   ai: {
     provider: string
     apiKey: string
@@ -92,6 +93,7 @@ function mockConfig(): Config {
     language: "auto",
     resolvedLanguage: navigator.language.slice(0, 2),
     closeOnCopy: false,
+    disableScreenDimming: false,
     ai: {
       provider: "openai",
       apiKey: "",

@@ -18,6 +18,8 @@ public sealed class AppConfig
     public string Language { get; set; } = Resources.Idioma.Automatico;
     /// <summary>Fecha o overlay automaticamente após copiar a imagem.</summary>
     public bool CloseOnCopy { get; set; } = false;
+    /// <summary>Não aplica a camada escura sobre a tela durante a captura.</summary>
+    public bool DisableScreenDimming { get; set; } = false;
     public AiConfig Ai { get; set; } = new();
     public ImageUploadConfig ImageUpload { get; set; } = new();
     public HistoryConfig History { get; set; } = new();
@@ -123,6 +125,7 @@ public sealed class AppConfig
             HotKey = HotKey,
             Language = Language,
             CloseOnCopy = CloseOnCopy,
+            DisableScreenDimming = DisableScreenDimming,
             Ai = new AiConfig
             {
                 Provider = Ai.Provider,
@@ -172,6 +175,8 @@ public sealed class AppConfig
         Language = E("LANGUAGE") ?? Language;
         var closeCopy = E("CLOSEONCOPY");
         if (closeCopy is not null && bool.TryParse(closeCopy, out var cc)) CloseOnCopy = cc;
+        var disableDimming = E("DISABLESCREENDIMMING");
+        if (disableDimming is not null && bool.TryParse(disableDimming, out var dd)) DisableScreenDimming = dd;
 
         Ai.Provider = E("AI__PROVIDER") ?? Ai.Provider;
         Ai.ApiKey = E("AI__APIKEY") ?? Ai.ApiKey;

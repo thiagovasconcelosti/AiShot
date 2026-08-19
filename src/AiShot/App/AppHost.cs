@@ -33,6 +33,7 @@ public sealed class AppHost : ICaptureServices
     }
 
     public bool CloseOnCopy => _cfg.CloseOnCopy;
+    public bool DisableScreenDimming => _cfg.DisableScreenDimming;
 
     public void CopyToClipboard(Bitmap finalImage)
     {

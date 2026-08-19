@@ -182,6 +182,7 @@ export default function App() {
 
         <Section title={t.sectionBehavior}>
           <SwitchRow label={t.closeOnCopy} checked={cfg.closeOnCopy} onChange={(v) => set({ closeOnCopy: v })} />
+          <SwitchRow label={t.disableScreenDimming} checked={cfg.disableScreenDimming} onChange={(v) => set({ disableScreenDimming: v })} />
         </Section>
       </main>
 

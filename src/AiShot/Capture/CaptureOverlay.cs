@@ -457,8 +457,9 @@ public sealed class CaptureOverlay : Form
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.DrawImageUnscaled(_background, 0, 0);
 
-        // escurece tudo, depois clareia a seleção
-        using (var dim = new SolidBrush(Theme.Dim)) g.FillRectangle(dim, ClientRectangle);
+        // Quando habilitado, escurece tudo e depois clareia a seleção.
+        if (!_services.DisableScreenDimming)
+            using (var dim = new SolidBrush(Theme.Dim)) g.FillRectangle(dim, ClientRectangle);
 
         if (_sel.Width > 0 && _sel.Height > 0)
         {

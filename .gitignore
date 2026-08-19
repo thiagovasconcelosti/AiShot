@@ -20,6 +20,7 @@ web/dist/
 # Configuração e skills locais do Claude Code (ferramental de quem desenvolve,
 # não do projeto). O processo de release em si está documentado no RELEASING.md.
 .claude/
+.agents/
 
 # Saída dos testes (relatórios .trx, cobertura)
 artefatos/

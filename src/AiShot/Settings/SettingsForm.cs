@@ -192,6 +192,7 @@ public sealed class SettingsForm : Form
                 // como saber qual idioma o sistema escolheu.
                 resolvedLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName,
                 closeOnCopy = _cfg.CloseOnCopy,
+                disableScreenDimming = _cfg.DisableScreenDimming,
                 ai = new
                 {
                     provider = ai.Provider,
@@ -267,6 +268,7 @@ public sealed class SettingsForm : Form
         if (c.TryGetProperty("language", out var lang) && lang.GetString() is { Length: > 0 } tag)
             _cfg.Language = tag;
         _cfg.CloseOnCopy = B(c, "closeOnCopy");
+        _cfg.DisableScreenDimming = B(c, "disableScreenDimming");
 
         var ai = c.GetProperty("ai");
         _cfg.Ai.Provider = S(ai, "provider");

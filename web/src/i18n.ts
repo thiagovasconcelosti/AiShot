@@ -65,6 +65,7 @@ const pt = {
 
   sectionBehavior: "Comportamento",
   closeOnCopy: "Fechar ao copiar",
+  disableScreenDimming: "Não escurecer a tela durante o print",
 
   repository: "Repositório",
   documentation: "Documentação",
@@ -127,6 +128,7 @@ const en: Dict = {
 
   sectionBehavior: "Behavior",
   closeOnCopy: "Close after copying",
+  disableScreenDimming: "Do not dim the screen during capture",
 
   repository: "Repository",
   documentation: "Documentation",
@@ -186,6 +188,7 @@ const es: Dict = {
 
   sectionBehavior: "Comportamiento",
   closeOnCopy: "Cerrar al copiar",
+  disableScreenDimming: "No oscurecer la pantalla durante la captura",
 
   repository: "Repositorio",
   documentation: "Documentación",

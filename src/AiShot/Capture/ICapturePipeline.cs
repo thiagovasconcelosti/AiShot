@@ -22,4 +22,7 @@ public interface ICaptureServices
 
     /// <summary>Se true, o overlay fecha automaticamente após copiar.</summary>
     bool CloseOnCopy { get; }
+
+    /// <summary>Se true, o overlay mantém a tela com o brilho original.</summary>
+    bool DisableScreenDimming => false;
 }
