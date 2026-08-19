@@ -249,4 +249,22 @@ This cannot be undone.</value>
   <data name="StartupToggleFailed" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="ConsentDataTitle" xml:space="preserve">
+    <value>Data sharing</value>
+  </data>
+  <data name="ConsentAiMessage" xml:space="preserve">
+    <value>To answer, AiShot will send this screenshot and your messages to the configured AI providers ({0}). These services will process the data under their own policies. Do you want to continue? You can decline and keep using local features.</value>
+  </data>
+  <data name="ConsentUploadMessage" xml:space="preserve">
+    <value>AiShot will send this screenshot to {0} to create a public link. Anyone with the link may access the image. Do you want to continue?</value>
+  </data>
+  <data name="ChatPrivacy" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="ChatReport" xml:space="preserve">
+    <value>Report</value>
+  </data>
+  <data name="ChatReportSubject" xml:space="preserve">
+    <value>Report of an inappropriate AiShot response</value>
+  </data>
 </root>

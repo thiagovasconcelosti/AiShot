@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Windows.Forms;
 using AiShot.Ai;
 using AiShot.Capture;
@@ -19,6 +20,8 @@ public sealed class AppHost : ICaptureServices
     private readonly HttpClient _http;
     private readonly IAiService _ai;
     private readonly CaptureHistory? _history;
+    private bool _aiConsentGranted;
+    private bool _uploadConsentGranted;
 
     public AppHost(AppConfig cfg, HttpClient http)
     {
@@ -58,6 +61,8 @@ public sealed class AppHost : ICaptureServices
 
     public async Task<string> UploadAsync(Bitmap finalImage, CancellationToken ct = default)
     {
+        if (!ConfirmUploadTransmission()) throw new OperationCanceledException(ct);
+
         var png = ToPng(finalImage);
         Arquivar(png);
         var uploader = ImageUploaderFactory.Create(_cfg.ImageUpload, _http);
@@ -67,9 +72,46 @@ public sealed class AppHost : ICaptureServices
 
     public Ai.IAiChatSession StartChat(Bitmap finalImage)
     {
+        if (!ConfirmAiTransmission()) throw new OperationCanceledException();
+
         var png = ToPng(finalImage);
         Arquivar(png);
         return _ai.CreateSession(png);
+    }
+
+    private bool ConfirmAiTransmission()
+    {
+        if (_aiConsentGranted) return true;
+
+        var providers = new List<string> { _cfg.Ai.Provider };
+        if (_cfg.Ai.Vision.Enabled) providers.Add(_cfg.Ai.Vision.Provider);
+        if (_cfg.Ai.Fallback is not null) providers.Add(_cfg.Ai.Fallback.Provider);
+        var destinos = string.Join(", ", providers
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+
+        var result = MessageBox.Show(
+            string.Format(CultureInfo.CurrentCulture, Resources.Strings.ConsentAiMessage, destinos),
+            Resources.Strings.ConsentDataTitle,
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Information,
+            MessageBoxDefaultButton.Button2);
+        _aiConsentGranted = result == DialogResult.Yes;
+        return _aiConsentGranted;
+    }
+
+    private bool ConfirmUploadTransmission()
+    {
+        if (_uploadConsentGranted) return true;
+
+        var result = MessageBox.Show(
+            string.Format(CultureInfo.CurrentCulture, Resources.Strings.ConsentUploadMessage, _cfg.ImageUpload.Service),
+            Resources.Strings.ConsentDataTitle,
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Information,
+            MessageBoxDefaultButton.Button2);
+        _uploadConsentGranted = result == DialogResult.Yes;
+        return _uploadConsentGranted;
     }
 
     /// <summary>

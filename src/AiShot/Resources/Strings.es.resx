@@ -249,4 +249,22 @@ Esta acción no se puede deshacer.</value>
   <data name="StartupToggleFailed" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="ConsentDataTitle" xml:space="preserve">
+    <value>Intercambio de datos</value>
+  </data>
+  <data name="ConsentAiMessage" xml:space="preserve">
+    <value>Para responder, AiShot enviará esta captura y tus mensajes a los proveedores de IA configurados ({0}). Estos servicios procesarán los datos según sus propias políticas. ¿Quieres continuar? Puedes rechazar y seguir usando las funciones locales.</value>
+  </data>
+  <data name="ConsentUploadMessage" xml:space="preserve">
+    <value>AiShot enviará esta captura al servicio {0} para crear un enlace público. Cualquier persona con el enlace podrá acceder a la imagen. ¿Quieres continuar?</value>
+  </data>
+  <data name="ChatPrivacy" xml:space="preserve">
+    <value>Privacidad</value>
+  </data>
+  <data name="ChatReport" xml:space="preserve">
+    <value>Denunciar</value>
+  </data>
+  <data name="ChatReportSubject" xml:space="preserve">
+    <value>Denuncia de respuesta inapropiada en AiShot</value>
+  </data>
 </root>

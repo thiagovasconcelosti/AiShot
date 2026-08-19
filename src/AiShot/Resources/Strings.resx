@@ -283,4 +283,22 @@ Esta ação não pode ser desfeita.</value>
     <value>{0}</value>
     <comment>{0}: detalhe do erro ao ligar/desligar o início automático</comment>
   </data>
+  <data name="ConsentDataTitle" xml:space="preserve">
+    <value>Compartilhamento de dados</value>
+  </data>
+  <data name="ConsentAiMessage" xml:space="preserve">
+    <value>Para responder, o AiShot enviará esta captura e suas mensagens aos provedores de IA configurados ({0}). Esses serviços processarão os dados conforme suas próprias políticas. Deseja continuar? Você pode recusar e continuar usando os recursos locais.</value>
+  </data>
+  <data name="ConsentUploadMessage" xml:space="preserve">
+    <value>O AiShot enviará esta captura ao serviço {0} para criar um link público. Qualquer pessoa com o link poderá acessar a imagem. Deseja continuar?</value>
+  </data>
+  <data name="ChatPrivacy" xml:space="preserve">
+    <value>Privacidade</value>
+  </data>
+  <data name="ChatReport" xml:space="preserve">
+    <value>Denunciar</value>
+  </data>
+  <data name="ChatReportSubject" xml:space="preserve">
+    <value>Denúncia de resposta inadequada no AiShot</value>
+  </data>
 </root>

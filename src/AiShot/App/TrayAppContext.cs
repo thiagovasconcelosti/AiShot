@@ -113,14 +113,31 @@ public sealed class TrayAppContext : ApplicationContext
         var startup = new ToolStripMenuItem(Strings.TrayStartWithWindows)
         {
             CheckOnClick = true,
-            Checked = StartupManager.IsEnabled(),
         };
-        startup.CheckedChanged += (s, _) =>
+        var updatingStartupState = false;
+        startup.CheckedChanged += async (s, _) =>
         {
-            try { StartupManager.SetEnabled(((ToolStripMenuItem)s!).Checked); }
+            if (updatingStartupState) return;
+
+            var item = (ToolStripMenuItem)s!;
+            item.Enabled = false;
+            try { await StartupManager.SetEnabledAsync(item.Checked); }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, Strings.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                try
+                {
+                    updatingStartupState = true;
+                    item.Checked = await StartupManager.IsEnabledAsync();
+                }
+                finally
+                {
+                    updatingStartupState = false;
+                    item.Enabled = true;
+                }
             }
         };
         menu.Items.Add(startup);
@@ -133,7 +150,21 @@ public sealed class TrayAppContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(Strings.TrayExit, null, (_, _) => ExitApp());
 
-        menu.Opening += (_, _) => PreencherHistorico();
+        menu.Opening += async (_, _) =>
+        {
+            PreencherHistorico();
+            try
+            {
+                updatingStartupState = true;
+                startup.Checked = await StartupManager.IsEnabledAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"StartupManager: não leu o estado: {ex.Message}");
+                startup.Enabled = false;
+            }
+            finally { updatingStartupState = false; }
+        };
         return menu;
     }
 

@@ -37,6 +37,10 @@ public static class UpdateService
     /// <summary>Retorna a versão nova (se houver) ou null se já está atualizado/erro.</summary>
     public static async Task<UpdateInfo?> CheckAsync(HttpClient http, CancellationToken ct = default)
     {
+        // No MSIX, instalacao e atualizacoes pertencem a Microsoft Store. Nunca
+        // oferece o instalador Inno para nao misturar os dois canais.
+        if (DistributionChannel.IsStorePackage) return null;
+
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, LatestApi);
@@ -109,6 +113,10 @@ public static class UpdateService
     public static async Task DownloadAndRunAsync(
         HttpClient http, string url, string? checksumUrl = null, CancellationToken ct = default)
     {
+        if (DistributionChannel.IsStorePackage)
+            throw new InvalidOperationException(
+                "As atualizações desta instalação são gerenciadas pela Microsoft Store.");
+
         if (!IsTrustedUrl(url)) throw new InvalidOperationException("URL de atualização não confiável.");
         if (checksumUrl is not null && !IsTrustedUrl(checksumUrl))
             throw new InvalidOperationException("URL do checksum não confiável.");

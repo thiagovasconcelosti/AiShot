@@ -3,9 +3,9 @@
   <assemblyIdentity version="1.0.0.0" name="AiShot.app"/>
 
   <!--
-    A configuração de DPI não vive mais aqui: é declarada em
+    A configuração de DPI não vive aqui: é declarada em
     <ApplicationHighDpiMode> no AiShot.csproj, que o WinForms aplica na
-    inicialização. Manter as duas fontes disparava o aviso WFO0003 e deixava
-    dois lugares para consultar quando o comportamento em tela mudasse.
+    inicialização. O empacotamento Store injeta a mesma declaração no executável
+    de staging para que o WACK também consiga validá-la estaticamente.
   -->
 </assembly>

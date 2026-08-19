@@ -17,10 +17,12 @@ web/dist/
 .milestones/
 *.local.md
 
-# Configuração e skills locais do Claude Code (ferramental de quem desenvolve,
-# não do projeto). O processo de release em si está documentado no RELEASING.md.
+# Configurações e ferramentas locais de desenvolvimento (não fazem parte do projeto).
 .claude/
 .agents/
+.codex/
+agents/
+MicrosoftWebStore/
 
 # Saída dos testes (relatórios .trx, cobertura)
 artefatos/

@@ -3,6 +3,7 @@ using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Windows.Forms;
 using AiShot.Ai;
+using AiShot.App;
 using AiShot.Resources;
 using AiShot.UI;
 
@@ -16,6 +17,7 @@ internal sealed class ChatPanel
 {
     private static readonly Font MsgFont = new("Segoe UI", 10f);
     private static readonly Font HeaderFont = new("Segoe UI Semibold", 10.5f);
+    private static readonly Font LinkFont = new("Segoe UI", 8.5f, FontStyle.Underline);
     private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
     /// <summary>
@@ -63,7 +65,7 @@ internal sealed class ChatPanel
     private bool _busy;
     private bool _scrollToBottom;
     private int _scroll, _contentHeight;
-    private Rectangle _bubble, _viewport, _sendBtn;
+    private Rectangle _bubble, _viewport, _sendBtn, _privacyBtn, _reportBtn;
 
     /// <summary>
     /// Botões de copiar por resposta, recalculados a cada desenho junto com as
@@ -85,7 +87,12 @@ internal sealed class ChatPanel
     public void Open()
     {
         IsOpen = true;
-        _session ??= _startSession(); // snapshot da imagem no momento da abertura
+        try { _session ??= _startSession(); } // snapshot da imagem no momento da abertura
+        catch (OperationCanceledException)
+        {
+            IsOpen = false;
+            return;
+        }
         EnsureInput();
         _input!.Visible = true;
         _input.Focus();
@@ -105,6 +112,12 @@ internal sealed class ChatPanel
     {
         if (!IsOpen) return false;
         if (_sendBtn.Contains(p)) { _ = SendAsync(); return true; }
+        if (_privacyBtn.Contains(p)) { OpenExternal(ComplianceLinks.PrivacyPolicy); return true; }
+        if (_reportBtn.Contains(p))
+        {
+            OpenExternal(ComplianceLinks.BuildReportUri(Strings.ChatReportSubject));
+            return true;
+        }
 
         foreach (var (area, texto) in _copyButtons)
             if (area.Contains(p)) { CopiarResposta(texto); return true; }
@@ -253,6 +266,26 @@ internal sealed class ChatPanel
             _aviso = null;
         }
 
+        if (_aviso is null)
+        {
+            var reportSize = g.MeasureString(Strings.ChatReport, LinkFont);
+            var privacySize = g.MeasureString(Strings.ChatPrivacy, LinkFont);
+            _reportBtn = new Rectangle(
+                inner.Right - (int)Math.Ceiling(reportSize.Width), inner.Top,
+                (int)Math.Ceiling(reportSize.Width), 20);
+            _privacyBtn = new Rectangle(
+                _reportBtn.Left - 10 - (int)Math.Ceiling(privacySize.Width), inner.Top,
+                (int)Math.Ceiling(privacySize.Width), 20);
+            using var linkBrush = new SolidBrush(Theme.TextMuted);
+            g.DrawString(Strings.ChatPrivacy, LinkFont, linkBrush, _privacyBtn.Location);
+            g.DrawString(Strings.ChatReport, LinkFont, linkBrush, _reportBtn.Location);
+        }
+        else
+        {
+            _privacyBtn = Rectangle.Empty;
+            _reportBtn = Rectangle.Empty;
+        }
+
         using (var sep = new Pen(Theme.BorderSubtle, 1))
             g.DrawLine(sep, inner.Left, inner.Top + 26, inner.Right, inner.Top + 26);
 
@@ -370,6 +403,19 @@ internal sealed class ChatPanel
             g.FillPath(bb, p);
         using (var sb = new SolidBrush(_busy ? Theme.TextMuted : Color.Black))
             g.DrawString(Icons.Send, Icons.Cached(16), sb, _sendBtn, CenterFmt);
+    }
+
+    private static void OpenExternal(Uri uri)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = uri.AbsoluteUri,
+                UseShellExecute = true,
+            });
+        }
+        catch { /* o chat continua utilizavel se nao houver aplicativo associado */ }
     }
 
     // ---------- Desenho por blocos ----------
