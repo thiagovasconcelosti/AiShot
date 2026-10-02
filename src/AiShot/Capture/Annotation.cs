@@ -6,7 +6,7 @@ namespace AiShot.Capture;
 internal enum Tool { None, Pen, Arrow, Line, Rect, Ellipse, Text, Blur, Step }
 
 /// <summary>Alça de redimensionamento/movimento da seleção.</summary>
-internal enum ResizeHandle { None, TL, T, TR, R, BR, B, BL, L, Move }
+internal enum ResizeHandle { None, TL, T, TR, R, BR, B, BL, L, Move, Rotate }
 
 /// <summary>Uma anotação vetorial desenhada sobre o print.</summary>
 internal sealed class Shape

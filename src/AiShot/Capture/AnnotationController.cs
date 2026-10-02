@@ -151,6 +151,24 @@ internal sealed class AnnotationController
         _refazer.Clear();
     }
 
+    /// <summary>
+    /// Troca a forma em curso por uma forma regular reconhecida no traço à mão,
+    /// mantendo a cor e a espessura escolhidas.
+    /// </summary>
+    public void RegularizarEmCurso(RegularStroke regular)
+    {
+        if (_emCurso is null) return;
+
+        _emCurso = new Shape
+        {
+            Tool = regular.Tool,
+            Color = _emCurso.Color,
+            Thickness = _emCurso.Thickness,
+            A = regular.A,
+            B = regular.B,
+        };
+    }
+
     // ---------- Histórico ----------
 
     /// <summary>Remove a última forma. Devolve false se não havia o que desfazer.</summary>

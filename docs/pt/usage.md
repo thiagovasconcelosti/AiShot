@@ -40,7 +40,9 @@ As chaves são guardadas **cifradas** (DPAPI do Windows) em `%APPDATA%\AiShot`.
    - **Toolbar lateral (desenho):** lápis, seta, linha, retângulo, elipse, texto, cor, desfazer.
    - **Barra inferior (ações):** Copiar, Salvar, Abrir no Paint, Upload, Compartilhar, Perguntar à IA, Fechar.
 3. **Mover / redimensionar** a seleção pelas 8 alças brancas (ou arrastar dentro dela quando nenhuma ferramenta está ativa).
-4. **Desfazer** a última anotação com `Ctrl+Z`. **Esc** cancela/fecha.
+4. **Girar o print** pela alça redonda acima da moldura: a moldura e o print giram juntos, no mesmo sentido — as barras ficam onde estavam. `Shift` gira de 15° em 15° e, perto de 0/90/180/270, o ângulo gruda. O arquivo sai com o print girado, do tamanho da caixa que o envolve: nada é cortado e o que sobra nos cantos é transparente.
+5. **Endireitar com `Shift`** — desenhando, `Shift` trava a reta e a seta em 0/45/90/135° e transforma retângulo e elipse em quadrado/círculo; e um traço à mão (lápis) **solto com `Shift`** vira **linha, círculo ou retângulo** regular, conforme o que você desenhou. Rabisco continua rabisco.
+6. **Desfazer** a última anotação com `Ctrl+Z`. **Esc** cancela/fecha.
 
 ## Ações
 

@@ -40,7 +40,9 @@ Las claves se guardan **cifradas** (DPAPI de Windows) en `%APPDATA%\AiShot`.
    - **Barra lateral (dibujo):** lápiz, flecha, línea, rectángulo, elipse, texto, color, deshacer.
    - **Barra inferior (acciones):** Copiar, Guardar, Abrir en Paint, Subir, Compartir, Preguntar a la IA, Cerrar.
 3. **Mover / redimensionar** la selección con las 8 manijas blancas (o arrastrar dentro de ella cuando ninguna herramienta está activa).
-4. **Deshacer** la última anotación con `Ctrl+Z`. **Esc** cancela/cierra.
+4. **Girar el print** con la manija redonda sobre el marco: el marco y el print giran juntos, en el mismo sentido — las barras se quedan donde estaban. `Shift` gira de 15° en 15° y, cerca de 0/90/180/270, el ángulo se pega. El archivo sale con el print girado, del tamaño de la caja que lo envuelve: nada se corta y lo que sobra en las esquinas es transparente.
+5. **Enderezar con `Shift`** — al dibujar, `Shift` traba la línea y la flecha en 0/45/90/135° y convierte el rectángulo y la elipse en cuadrado/círculo; y un trazo a mano (lápiz) **soltado con `Shift`** se vuelve una **línea, círculo o rectángulo** regular, según lo que hayas dibujado. Un garabato sigue siendo un garabato.
+6. **Deshacer** la última anotación con `Ctrl+Z`. **Esc** cancela/cierra.
 
 ## Acciones
 

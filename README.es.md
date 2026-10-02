@@ -13,7 +13,7 @@ Clon de Lightshot/prntscr orientado a IA, para Windows. Captura una región de l
 ## Características
 
 - Captura de región sobre todo el escritorio virtual (overlay oscurecido estilo Lightshot).
-- Editor: flecha, rectángulo, elipse, línea, lápiz, texto, color y grosor, deshacer (Ctrl+Z).
+- Editor: flecha, rectángulo, elipse, línea, lápiz, texto, color y grosor, deshacer (Ctrl+Z), rotación del print con la manija del marco y trazo a mano que se vuelve línea, círculo o rectángulo con Shift.
 - **Copiar** (portapapeles), **Guardar** (PNG/JPG), **Abrir en Paint**, **Subir** y **Compartir** (freeimage.host / imgbb).
 - **Preguntar a la IA** sobre la captura — chat continuo, proveedor `anthropic` u `openai`, **fallback** automático e **IA de visión** opcional. Con la visión activa, describe la imagen *antes* de que responda la IA principal.
 

@@ -13,7 +13,7 @@ AI-focused clone of Lightshot/prntscr for Windows. Capture a screen region, anno
 ## Features
 
 - Region capture over the whole virtual desktop (Lightshot-style dimmed overlay).
-- Editor: arrow, rectangle, ellipse, line, pen, text, color & thickness, undo (Ctrl+Z).
+- Editor: arrow, rectangle, ellipse, line, pen, text, color & thickness, undo (Ctrl+Z), print rotation with the frame handle and freehand strokes that snap to a regular line, circle or rectangle with Shift.
 - **Copy** (clipboard), **Save** (PNG/JPG), **Open in Paint**, **Upload** & **Share** (freeimage.host / imgbb).
 - **Ask AI** about the screenshot — continuous chat, provider `anthropic` or `openai`, automatic **fallback** and optional **vision AI**. When vision is on, it describes the image *before* the main AI answers.
 

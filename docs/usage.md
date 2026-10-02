@@ -40,7 +40,9 @@ Keys are stored **encrypted** (Windows DPAPI) in `%APPDATA%\AiShot`.
    - **Side toolbar (drawing):** pen, arrow, line, rectangle, ellipse, text, color, undo.
    - **Bottom bar (actions):** Copy, Save, Open in Paint, Upload, Share, Ask AI, Close.
 3. **Move / resize** the selection with the 8 white handles (or drag inside it when no tool is active).
-4. **Undo** the last annotation with `Ctrl+Z`. **Esc** cancels/closes.
+4. **Rotate the print** with the round handle above the frame: the frame and the print turn together, in the same direction — the bars stay where they were. `Shift` rotates in 15° steps, and near 0/90/180/270 the angle snaps. The saved file is the rotated print, sized to the box that encloses it: nothing is cut, and the leftover corners are transparent.
+5. **Straighten with `Shift`** — while drawing, `Shift` locks the line and the arrow to 0/45/90/135° and turns the rectangle and the ellipse into a square/circle; and a freehand stroke (pen) **released with `Shift`** becomes a regular **line, circle or rectangle**, depending on what you drew. A scribble stays a scribble.
+6. **Undo** the last annotation with `Ctrl+Z`. **Esc** cancels/closes.
 
 ## Actions
 

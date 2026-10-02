@@ -80,11 +80,17 @@ internal sealed class OverlayChrome
     }
 
     /// <summary>Desenha o tamanho da seleção, logo acima dela.</summary>
-    public void DrawDimensions(Graphics g, Rectangle selecao)
+    /// <param name="rotacao">
+    /// Ângulo da moldura. Entra no rótulo porque é o único lugar onde o usuário
+    /// vê o quanto o recorte vai sair endireitado no arquivo.
+    /// </param>
+    public void DrawDimensions(Graphics g, Rectangle selecao, double rotacao = 0)
     {
         if (selecao.Width <= 0) return;
 
-        var txt = $"{selecao.Width} × {selecao.Height}";
+        var txt = rotacao == 0
+            ? $"{selecao.Width} × {selecao.Height}"
+            : $"{selecao.Width} × {selecao.Height} · {rotacao:0.#}°";
         var tamanho = g.MeasureString(txt, DimFont);
 
         int y = selecao.Top - 24;

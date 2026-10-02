@@ -22,7 +22,9 @@ Program.Main [STAThread]
             └─ ImageUploaderFactory → IImageUploader (FreeImage | Imgbb)
 
 CaptureOverlay (Form) — seleção + edição in-place, consome ICaptureServices
- ├─ SelectionGeometry  (geometria pura: hit-test, resize/move, clamp)
+ ├─ SelectionGeometry  (geometria pura: hit-test, resize/move, clamp, rotação)
+ ├─ SelectionChromeRenderer (moldura, alças de redimensionamento e de rotação)
+ ├─ FinalImageRenderer (imagem exportada: recorte, anotações e giro do print)
  ├─ ShapeRenderer      (desenho das anotações)
  ├─ ToolbarLayout      (layout dos botões, ciente do monitor)
  └─ ChatPanel          (chat da IA: timeline, scroll, sessão)
@@ -133,6 +135,53 @@ Se o provedor principal falhar **no meio do fluxo**, o texto parcial já exibido
 
 `GlobalHotKey` usa um **hook de teclado low-level** (`WH_KEYBOARD_LL`) em vez de `RegisterHotKey`, porque no Windows 11 o `PrintScreen` é reservado pela Ferramenta de Captura e o `RegisterHotKey` falha/é roubado. O hook intercepta a tecla antes e a **suprime**. Um **modo de captura** deixa a janela de Configurações ler a combinação pressionada sem disparar uma captura.
 
+## Captura e edição
+
+O overlay congela a tela num bitmap (`_background`) e a seleção é um retângulo
+alinhado aos eixos **mais um ângulo**, aplicado em torno do centro.
+
+- **Quem gira é a moldura e o print.** A alça de rotação (a bolinha acima do meio
+  da aresta superior) gira a moldura e o print junto, no mesmo sentido; as barras,
+  a paleta, o chat e o rótulo de dimensões continuam alinhados à tela, ancorados
+  na seleção sem giro — girar não move nenhum controle.
+- **Hit-test em qualquer ângulo.** O ponto do mouse entra no sistema sem rotação
+  da moldura (`SelectionGeometry.ToLocal`), então as oito alças de
+  redimensionamento usam a mesma matemática de sempre e o lado oposto fica parado
+  na tela. As anotações vivem nas coordenadas do conteúdo (a tela sem giro): saem
+  grudadas no print e giram junto com ele.
+- **Imagem exportada** (`FinalImageRenderer`). Sem giro é cópia 1:1 do recorte,
+  pixel a pixel. Com giro, o print é girado no mesmo sentido da moldura, o arquivo
+  passa a ter o tamanho da caixa que envolve o print girado — nada é cortado — e o
+  que sobra nos cantos fica transparente. A prévia usa o mesmo giro, então o que
+  aparece na tela é o que sai no arquivo.
+- **Snap.** Arraste livre; `Shift` gira de 15° em 15°; perto de 0/90/180/270 o
+  ângulo gruda.
+
+### Endireitar traços
+
+`StrokeRegularizer` é função pura sobre pontos e responde por dois gestos:
+
+- **Com Shift, enquanto desenha.** Reta e seta travam no múltiplo de 45° mais
+  próximo — o comprimento é a projeção do arraste no eixo travado, para acompanhar
+  o gesto em vez de saltar. Retângulo e elipse viram quadrado (o círculo é a
+  elipse de caixa quadrada), preservando o quadrante do arraste.
+- **Com Shift, ao soltar o lápis.** O traço à mão vira linha, círculo ou
+  retângulo. A **ordem dos testes** é o que separa as formas: **retângulo
+  primeiro**, por ser o mais específico (95% dos pontos encostados nas bordas e as
+  quatro bordas cobertas, o que um círculo não cumpre — os pontos a 45° ficam no
+  miolo); depois **círculo**, com centro e raio de um ajuste por mínimos quadrados
+  (Kåsa) — o centro da caixa erra quando o traço não fecha no mesmo ponto, que é o
+  caso normal de quem desenha à mão — e cobertura de 85% do giro, que aceita
+  abertura e sobreposição; por último **linha**, só em traço aberto, com todos os
+  pontos a menos de 10% do comprimento da corda.
+
+O reconhecimento é conservador: na dúvida o traço continua à mão. Rabisco, curva
+em "S" e traço curto (menos de 8 pontos ou 40 px de caminho) não viram forma.
+
+O comportamento da rotação está fixado em `RotacaoDaSelecaoTests` e
+`ImagemFinalRotacionadaTests`, e o dos traços em `StrokeRegularizerTests`;
+`RotacaoVisualDump` grava amostras para conferência a olho.
+
 ## Build e publish
 
 ```sh
@@ -161,7 +210,7 @@ dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 --self-contained f
 ```
 src/AiShot/
   Program.cs, App/ (TrayAppContext, AppHost, StartupManager)
-  Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, ShapeRenderer, ToolbarLayout, Annotation)
+  Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, SelectionChromeRenderer, FinalImageRenderer, ShapeRenderer, ToolbarLayout, Annotation)
   Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, ServerSentEvents, HttpUtil)
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)

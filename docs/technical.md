@@ -22,7 +22,9 @@ Program.Main [STAThread]
             └─ ImageUploaderFactory → IImageUploader (FreeImage | Imgbb)
 
 CaptureOverlay (Form) — in-place selection + editing, consumes ICaptureServices
- ├─ SelectionGeometry  (pure geometry: hit-test, resize/move, clamp)
+ ├─ SelectionGeometry  (pure geometry: hit-test, resize/move, clamp, rotation)
+ ├─ SelectionChromeRenderer (frame, resize handles and rotation handle)
+ ├─ FinalImageRenderer (exported image: crop, annotations and print rotation)
  ├─ ShapeRenderer      (annotation drawing)
  ├─ ToolbarLayout      (toolbar button layout, monitor-aware)
  └─ ChatPanel          (AI chat: timeline, scroll, session)
@@ -133,6 +135,54 @@ If the main provider fails **mid-stream**, the partial text already displayed is
 
 `GlobalHotKey` uses a **low-level keyboard hook** (`WH_KEYBOARD_LL`) instead of `RegisterHotKey`, because on Windows 11 `PrintScreen` is reserved by the Snipping Tool and `RegisterHotKey` fails/gets stolen. The hook intercepts the key first and **suppresses** it. A **capture mode** lets the Settings window read a pressed combo without triggering a capture.
 
+## Capture and editing
+
+The overlay freezes the screen into a bitmap (`_background`) and the selection is
+an axis-aligned rectangle **plus an angle**, applied around its centre.
+
+- **The frame and the print turn together.** The rotation handle (the dot above
+  the middle of the top edge) turns the frame and the print in the same direction;
+  the toolbars, the palette, the chat and the dimensions label stay aligned to the
+  screen, anchored to the unrotated selection — rotating moves no control.
+- **Hit-testing at any angle.** The mouse point is mapped into the frame's
+  unrotated system (`SelectionGeometry.ToLocal`), so the eight resize handles use
+  the same maths as always and the opposite side stays put on screen. Annotations
+  live in content coordinates (the screen without rotation): they stick to the
+  print and rotate with it.
+- **Exported image** (`FinalImageRenderer`). Without rotation it is a 1:1 copy of
+  the crop, pixel by pixel. With rotation, the print turns in the same direction
+  as the frame, the file grows to the box that encloses the rotated print —
+  nothing is cut — and the leftover corners are transparent. The preview uses the
+  same rotation, so what you see is what you save.
+- **Snap.** Free drag; `Shift` rotates in 15° steps; near 0/90/180/270 the angle
+  snaps.
+
+### Straightening strokes
+
+`StrokeRegularizer` is a pure function over points and answers two gestures:
+
+- **Shift while drawing.** The line and the arrow lock to the nearest multiple of
+  45° — the length is the drag projected onto the locked axis, so it follows the
+  gesture instead of jumping. The rectangle and the ellipse become a square (a
+  circle is the ellipse with a square box), keeping the drag quadrant.
+- **Shift when releasing the pen.** The freehand stroke becomes a line, circle or
+  rectangle. The **order of the tests** is what separates the shapes:
+  **rectangle first**, as the most specific one (95% of the points touching the
+  edges and all four edges covered — a circle fails it, because the 45° points sit
+  in the middle); then **circle**, with centre and radius from a least-squares fit
+  (Kåsa) — the box centre is off when the stroke does not close at the same point,
+  which is the normal case for a hand-drawn circle — and 85% angular coverage,
+  which accepts a gap or an overlap; and finally **line**, only for an open
+  stroke, with every point within 10% of the chord length.
+
+Recognition is conservative: when in doubt the stroke stays freehand. A scribble,
+an "S" curve and a short stroke (under 8 points or 40 px of path) do not become
+shapes.
+
+The rotation behaviour is pinned by `RotacaoDaSelecaoTests` and
+`ImagemFinalRotacionadaTests`, and the strokes by `StrokeRegularizerTests`;
+`RotacaoVisualDump` writes samples for eyeballing.
+
 ## Build & publish
 
 ```sh
@@ -161,7 +211,7 @@ dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 --self-contained f
 ```
 src/AiShot/
   Program.cs, App/ (TrayAppContext, AppHost, StartupManager)
-  Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, ShapeRenderer, ToolbarLayout, Annotation)
+  Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, SelectionChromeRenderer, FinalImageRenderer, ShapeRenderer, ToolbarLayout, Annotation)
   Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, ServerSentEvents, HttpUtil)
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)

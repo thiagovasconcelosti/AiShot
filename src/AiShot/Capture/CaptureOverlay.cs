@@ -25,6 +25,20 @@ public sealed class CaptureOverlay : Form
     private ResizeHandle _activeHandle = ResizeHandle.None;
     private Rectangle _selAtDragStart;
 
+    /// <summary>
+    /// Rotação da moldura, em graus. A seleção continua sendo um retângulo
+    /// alinhado aos eixos; este ângulo é aplicado em torno do centro dela.
+    /// Quem gira é só a moldura — o conteúdo do print fica reto na tela.
+    /// </summary>
+    private double _rotacao;
+
+    /// <summary>Ângulo da moldura e do mouse quando o arraste da alça começou.</summary>
+    private double _rotacaoNoInicio;
+    private double _anguloMouseNoInicio;
+
+    /// <summary>Ponto fixo do redimensionamento em curso (ver SelectionGeometry.Anchor).</summary>
+    private PointF _ancora;
+
     /// <summary>Estado das anotações: formas, ferramenta, cor, espessura e histórico.</summary>
     private readonly AnnotationController _anotacoes = new();
 
@@ -203,23 +217,40 @@ public sealed class CaptureOverlay : Form
         foreach (var b in _sideButtons)
             if (b.Rect.Contains(e.Location)) { OnSideAction(b.Id, b.Rect); return; }
 
-        var h = SelectionGeometry.HitHandle(_sel, e.Location);
+        // A moldura pode estar girada: o ponto entra no sistema local (onde a
+        // seleção é um retângulo alinhado) e todo o hit-test das alças segue
+        // valendo sem matemática própria.
+        var local = SelectionGeometry.ToLocal(e.Location, _sel, _rotacao);
+
+        // A alça de rotação fica fora da moldura, acima do meio da aresta
+        // superior, e é consultada antes das demais.
+        if (SelectionGeometry.HitRotationHandle(_sel, local))
+        {
+            _activeHandle = ResizeHandle.Rotate;
+            _rotacaoNoInicio = _rotacao;
+            _anguloMouseNoInicio = AnguloAteO(e.Location);
+            _dragging = true;
+            return;
+        }
+
+        var h = SelectionGeometry.HitHandle(_sel, local);
         if (h != ResizeHandle.None)
         {
             _activeHandle = h;
             _selAtDragStart = _sel;
             _dragStart = e.Location;
+            _ancora = SelectionGeometry.Anchor(h, _sel, _rotacao);
             _dragging = true;
             return;
         }
 
-        if (_sel.Contains(e.Location))
+        if (SelectionGeometry.Contains(_sel, local))
         {
             if (_anotacoes.Tool == Tool.None) // mover seleção
             {
                 _activeHandle = ResizeHandle.Move;
                 _selAtDragStart = _sel;
-                _dragStart = e.Location;
+                _dragStart = e.Location; // a âncora do movimento é o ponto de partida
                 _dragging = true;
             }
             else if (_anotacoes.Tool == Tool.Text)
@@ -229,13 +260,16 @@ public sealed class CaptureOverlay : Form
             else if (_anotacoes.Tool == Tool.Step)
             {
                 // Posicionado por clique: confirma na hora, sem esperar arraste.
-                _anotacoes.BeginDraw(e.Location);
+                _anotacoes.BeginDraw(PontoDoConteudo(e.Location));
                 _anotacoes.EndDraw();
                 Invalidate();
             }
             else // iniciar desenho
             {
-                _anotacoes.BeginDraw(e.Location);
+                // As formas vivem nas coordenadas do conteúdo (a tela sem giro):
+                // desenhadas com a transformação da moldura, elas aparecem sob o
+                // cursor e saem giradas junto com o print no arquivo.
+                _anotacoes.BeginDraw(PontoDoConteudo(e.Location));
                 _dragging = true;
             }
         }
@@ -256,15 +290,31 @@ public sealed class CaptureOverlay : Form
             UpdateCursor(e.Location);
             UpdateHoverTip(e.Location);
 
-            if (_dragging && _activeHandle != ResizeHandle.None)
+            if (_dragging && _activeHandle == ResizeHandle.Rotate)
             {
-                _sel = SelectionGeometry.ResizeOrMove(_activeHandle, _selAtDragStart, _dragStart, e.Location, _sel);
+                Girar(e.Location);
                 Invalidate();
                 return;
             }
-            if (_dragging && _anotacoes.InProgress is not null)
+            if (_dragging && _activeHandle != ResizeHandle.None)
             {
-                _anotacoes.ContinueDraw(e.Location);
+                // O movimento anda com o mouse na tela; o redimensionamento é
+                // medido a partir da âncora, que fica parada na tela.
+                PointF ancora = _activeHandle == ResizeHandle.Move ? _dragStart : _ancora;
+                var nova = SelectionGeometry.Resize(_activeHandle, _selAtDragStart, _rotacao, ancora, e.Location);
+                if (!nova.IsEmpty) _sel = nova;
+                Invalidate();
+                return;
+            }
+            if (_dragging && _anotacoes.InProgress is { } emCurso)
+            {
+                var ponto = PontoDoConteudo(e.Location);
+
+                // Shift endireita o que está sendo desenhado: reta travada em
+                // 0/45/90/135 graus, quadrado no retângulo e círculo na elipse.
+                if (ShiftPressionado) ponto = StrokeRegularizer.Restringir(emCurso.Tool, emCurso.A, ponto);
+
+                _anotacoes.ContinueDraw(ponto);
                 Invalidate();
                 return;
             }
@@ -290,6 +340,7 @@ public sealed class CaptureOverlay : Form
         if (_dragging)
         {
             _dragging = false;
+            RegularizarSePedido();
             _anotacoes.EndDraw();
             _activeHandle = ResizeHandle.None;
             _sel = SelectionGeometry.Clamp(_sel, new Size(Width, Height));
@@ -420,7 +471,9 @@ public sealed class CaptureOverlay : Form
     {
         if (_textInput is null) return;
         var txt = _textInput.Text;
-        var loc = _textInput.Location;
+        // A caixa é um controle e fica alinhada à tela; a forma entra nas
+        // coordenadas do conteúdo, para sair girada junto com o print.
+        var loc = PontoDoConteudo(_textInput.Location);
         if (!string.IsNullOrWhiteSpace(txt))
             _anotacoes.Add(new Shape { Tool = Tool.Text, Color = _anotacoes.Color, Thickness = _anotacoes.Thickness, A = loc, TextValue = txt });
         CancelTextInput();
@@ -439,16 +492,88 @@ public sealed class CaptureOverlay : Form
     private void UpdateCursor(Point p)
     {
         if (_anotacoes.Tool != Tool.None) { Cursor = Cursors.Cross; return; }
-        var h = SelectionGeometry.HitHandle(_sel, p);
-        Cursor = h switch
+
+        var local = SelectionGeometry.ToLocal(p, _sel, _rotacao);
+        if (SelectionGeometry.HitRotationHandle(_sel, local)) { Cursor = Cursors.Hand; return; }
+
+        var h = SelectionGeometry.HitHandle(_sel, local);
+        Cursor = h == ResizeHandle.None
+            ? (SelectionGeometry.Contains(_sel, local) ? Cursors.SizeAll : Cursors.Default)
+            : CursorDaAlca(h);
+    }
+
+    /// <summary>
+    /// Cursor de uma alça de redimensionamento. A direção da alça é girada junto
+    /// com a moldura: com ela a 90°, a alça da direita está embaixo e o cursor
+    /// tem de ser vertical, senão ele aponta para o lado errado.
+    /// </summary>
+    private Cursor CursorDaAlca(ResizeHandle alca)
+    {
+        PointF direcao = alca switch
         {
-            ResizeHandle.TL or ResizeHandle.BR => Cursors.SizeNWSE,
-            ResizeHandle.TR or ResizeHandle.BL => Cursors.SizeNESW,
-            ResizeHandle.T or ResizeHandle.B => Cursors.SizeNS,
-            ResizeHandle.L or ResizeHandle.R => Cursors.SizeWE,
-            _ => _sel.Contains(p) ? Cursors.SizeAll : Cursors.Default,
+            ResizeHandle.TL or ResizeHandle.BR => new PointF(1, 1),
+            ResizeHandle.TR or ResizeHandle.BL => new PointF(1, -1),
+            ResizeHandle.T or ResizeHandle.B => new PointF(0, -1),
+            _ => new PointF(1, 0),
+        };
+
+        var girada = SelectionGeometry.RotatePoint(direcao, new PointF(0, 0), _rotacao);
+        double angulo = Math.Atan2(girada.Y, girada.X) * 180.0 / Math.PI;
+        int passo = (int)Math.Round(((angulo % 180) + 180) % 180 / 45.0) % 4;
+
+        return passo switch
+        {
+            0 => Cursors.SizeWE,
+            1 => Cursors.SizeNWSE,
+            2 => Cursors.SizeNS,
+            _ => Cursors.SizeNESW,
         };
     }
+
+    // ---------- Endireitar traços ----------
+    /// <summary>Shift está pressionado? É o gesto que endireita as formas.</summary>
+    private static bool ShiftPressionado => (ModifierKeys & Keys.Shift) == Keys.Shift;
+
+    /// <summary>
+    /// Com Shift, o traço à mão vira uma forma regular antes de ser confirmado:
+    /// linha, círculo ou retângulo, conforme o que o traço desenhou. Rabisco que
+    /// não é nenhum dos três continua à mão.
+    /// </summary>
+    private void RegularizarSePedido()
+    {
+        if (!ShiftPressionado) return;
+        if (_anotacoes.InProgress is not { Tool: Tool.Pen, Points: { } pontos }) return;
+
+        if (StrokeRegularizer.Reconhecer(pontos) is { } regular) _anotacoes.RegularizarEmCurso(regular);
+    }
+
+    // ---------- Rotação ----------
+    /// <summary>
+    /// Ponto do mouse no sistema do conteúdo (a tela sem giro), já arredondado.
+    /// É onde as formas e o texto são guardados: desenhados com a transformação da
+    /// moldura, eles aparecem sob o cursor e giram junto com o print.
+    /// </summary>
+    private Point PontoDoConteudo(Point naTela)
+    {
+        var local = SelectionGeometry.ToLocal(naTela, _sel, _rotacao);
+        return new Point((int)Math.Round(local.X), (int)Math.Round(local.Y));
+    }
+
+    /// <summary>Ângulo, em graus, do centro da seleção até um ponto da tela.</summary>
+    private double AnguloAteO(Point ponto)
+    {
+        var centro = SelectionGeometry.Center(_sel);
+        return Math.Atan2(ponto.Y - centro.Y, ponto.X - centro.X) * 180.0 / Math.PI;
+    }
+
+    /// <summary>
+    /// Aplica o arraste da alça de rotação: o ângulo anda o mesmo tanto que o
+    /// mouse andou em torno do centro, e não salta para debaixo do cursor.
+    /// </summary>
+    private void Girar(Point ponto) =>
+        _rotacao = SelectionGeometry.SnapRotation(
+            _rotacaoNoInicio + AnguloAteO(ponto) - _anguloMouseNoInicio,
+            ShiftPressionado);
 
     // ---------- Render ----------
     protected override void OnPaint(PaintEventArgs e)
@@ -461,25 +586,34 @@ public sealed class CaptureOverlay : Form
         if (!_services.DisableScreenDimming)
             using (var dim = new SolidBrush(Theme.Dim)) g.FillRectangle(dim, ClientRectangle);
 
+        // O print e as anotações giram junto com a moldura, recortados por ela: é
+        // o mesmo giro do arquivo exportado, então o que aparece aqui é o que sai
+        // lá. As barras e os painéis ficam de fora, alinhados à tela.
         if (_sel.Width > 0 && _sel.Height > 0)
         {
-            g.SetClip(_sel);
+            using var moldura = SelectionGeometry.FramePath(_sel, _rotacao);
+            g.SetClip(moldura);
+
+            var centro = SelectionGeometry.Center(_sel);
+            g.TranslateTransform(centro.X, centro.Y);
+            g.RotateTransform((float)_rotacao);
+            g.TranslateTransform(-centro.X, -centro.Y);
+
             g.DrawImageUnscaled(_background, 0, 0);
+
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            // O borrão lê os pixels de _background, cujas coordenadas coincidem com
+            // as do overlay (ambos cobrem a área virtual): deslocamento zero.
+            foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s, _background);
+            if (_anotacoes.InProgress is not null) ShapeRenderer.Draw(g, _anotacoes.InProgress, _background);
+
+            g.ResetTransform();
             g.ResetClip();
         }
 
-        // anotações (recortadas à seleção)
-        g.SetClip(_sel);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        // O borrão lê os pixels de _background, cujas coordenadas coincidem com
-        // as do overlay (ambos cobrem a área virtual): deslocamento zero.
-        foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s, _background);
-        if (_anotacoes.InProgress is not null) ShapeRenderer.Draw(g, _anotacoes.InProgress, _background);
-        g.ResetClip();
-
         if (_mode == Mode.Editing)
         {
-            DrawSelectionChrome(g);
+            SelectionChromeRenderer.Draw(g, _sel, _rotacao, comAlcas: true);
             LayoutAndDrawToolbars(g);
             if (_paletteOpen) DrawPalette(g);
             if (_thicknessMenuOpen) DrawThicknessMenu(g);
@@ -487,34 +621,16 @@ public sealed class CaptureOverlay : Form
         }
         else
         {
-            DrawSelectionChrome(g);
+            SelectionChromeRenderer.Draw(g, _sel, _rotacao, comAlcas: false);
         }
 
-        _chrome.DrawDimensions(g, _sel);
+        _chrome.DrawDimensions(g, _sel, _rotacao);
         _chrome.DrawFlash(g);
         if (_mode == Mode.Editing && !_chat.IsOpen) _chrome.DrawTooltip(g, Width);
     }
 
-    private void DrawSelectionChrome(Graphics g)
-    {
-        if (_sel.Width <= 0) return;
-        using var pen = new Pen(Theme.SelectionStroke, 1.5f);
-        g.SmoothingMode = SmoothingMode.None;
-        g.DrawRectangle(pen, _sel);
-
-        if (_mode == Mode.Editing)
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            foreach (var hr in SelectionGeometry.HandleRects(_sel))
-            {
-                using var fill = new SolidBrush(Color.White);
-                using var br = new Pen(Color.FromArgb(120, 0, 0, 0), 1);
-                using var p = Theme.RoundRect(hr, 2);
-                g.FillPath(fill, p);
-                g.DrawPath(br, p);
-            }
-        }
-    }
+    private void DrawSelectionChrome(Graphics g) =>
+        SelectionChromeRenderer.Draw(g, _sel, _rotacao, comAlcas: _mode == Mode.Editing);
 
     /// <summary>Bounds (em coords do form/cliente) do monitor que contém a seleção.</summary>
     private Rectangle MonitorBounds()
@@ -554,7 +670,7 @@ public sealed class CaptureOverlay : Form
     }
 
     /// <summary>Rasteriza a seleção + anotações num novo bitmap.</summary>
-    private Bitmap RenderFinal() => FinalImageRenderer.Render(_background, _sel, _anotacoes.Shapes);
+    private Bitmap RenderFinal() => FinalImageRenderer.Render(_background, _sel, _anotacoes.Shapes, _rotacao);
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {

@@ -22,7 +22,9 @@ Program.Main [STAThread]
             └─ ImageUploaderFactory → IImageUploader (FreeImage | Imgbb)
 
 CaptureOverlay (Form) — selección + edición in situ, consume ICaptureServices
- ├─ SelectionGeometry  (geometría pura: hit-test, resize/move, clamp)
+ ├─ SelectionGeometry  (geometría pura: hit-test, resize/move, clamp, rotación)
+ ├─ SelectionChromeRenderer (marco, manijas de redimensionado y de rotación)
+ ├─ FinalImageRenderer (imagen exportada: recorte, anotaciones y giro del print)
  ├─ ShapeRenderer      (dibujo de anotaciones)
  ├─ ToolbarLayout      (layout de botones, consciente del monitor)
  └─ ChatPanel          (chat de la IA: timeline, scroll, sesión)
@@ -134,6 +136,55 @@ Si el proveedor principal falla **a mitad del flujo**, el texto parcial ya mostr
 
 `GlobalHotKey` usa un **hook de teclado low-level** (`WH_KEYBOARD_LL`) en lugar de `RegisterHotKey`, porque en Windows 11 `PrintScreen` está reservado por la Herramienta de Recortes y `RegisterHotKey` falla/es robado. El hook intercepta la tecla primero y la **suprime**. Un **modo de captura** permite que la ventana de Configuración lea la combinación pulsada sin disparar una captura.
 
+## Captura y edición
+
+El overlay congela la pantalla en un bitmap (`_background`) y la selección es un
+rectángulo alineado a los ejes **más un ángulo**, aplicado alrededor del centro.
+
+- **Giran el marco y el print.** La manija de rotación (el círculo sobre el medio
+  del borde superior) gira el marco y el print juntos, en el mismo sentido; las
+  barras, la paleta, el chat y la etiqueta de dimensiones siguen alineados a la
+  pantalla, anclados a la selección sin giro — girar no mueve ningún control.
+- **Hit-test en cualquier ángulo.** El punto del mouse entra en el sistema sin
+  giro del marco (`SelectionGeometry.ToLocal`), así que las ocho manijas de
+  redimensionado usan la misma matemática de siempre y el lado opuesto se queda
+  quieto en pantalla. Las anotaciones viven en las coordenadas del contenido (la
+  pantalla sin giro): salen pegadas al print y giran con él.
+- **Imagen exportada** (`FinalImageRenderer`). Sin giro es copia 1:1 del recorte,
+  píxel a píxel. Con giro, el print gira en el mismo sentido del marco, el archivo
+  pasa a tener el tamaño de la caja que envuelve el print girado — nada se corta —
+  y lo que sobra en las esquinas queda transparente. La vista previa usa el mismo
+  giro, así que lo que se ve es lo que sale en el archivo.
+- **Snap.** Arrastre libre; `Shift` gira de 15° en 15°; cerca de 0/90/180/270 el
+  ángulo se pega.
+
+### Enderezar trazos
+
+`StrokeRegularizer` es una función pura sobre puntos y responde a dos gestos:
+
+- **Con Shift, mientras dibuja.** La línea y la flecha se traban en el múltiplo de
+  45° más cercano — el largo es la proyección del arrastre en el eje trabado, para
+  acompañar el gesto en vez de saltar. El rectángulo y la elipse se vuelven
+  cuadrado (el círculo es la elipse de caja cuadrada), conservando el cuadrante
+  del arrastre.
+- **Con Shift, al soltar el lápiz.** El trazo a mano se vuelve línea, círculo o
+  rectángulo. El **orden de las pruebas** es lo que separa las formas:
+  **rectángulo primero**, por ser el más específico (95% de los puntos tocando los
+  bordes y los cuatro bordes cubiertos, cosa que un círculo no cumple — los puntos
+  a 45° quedan en el medio); después **círculo**, con centro y radio de un ajuste
+  por mínimos cuadrados (Kåsa) — el centro de la caja falla cuando el trazo no
+  cierra en el mismo punto, que es lo normal al dibujar a mano — y cobertura del
+  85% del giro, que acepta abertura y superposición; por último **línea**, solo en
+  trazo abierto, con todos los puntos a menos del 10% del largo de la cuerda.
+
+El reconocimiento es conservador: ante la duda el trazo sigue a mano. Garabato,
+curva en "S" y trazo corto (menos de 8 puntos o 40 px de camino) no se vuelven
+forma.
+
+El comportamiento de la rotación está fijado en `RotacaoDaSelecaoTests` y
+`ImagemFinalRotacionadaTests`, y el de los trazos en `StrokeRegularizerTests`;
+`RotacaoVisualDump` graba muestras para revisar a ojo.
+
 ## Compilación y publicación
 
 ```sh
@@ -162,7 +213,7 @@ dotnet publish src/AiShot/AiShot.csproj -c Release -r win-x64 --self-contained f
 ```
 src/AiShot/
   Program.cs, App/ (TrayAppContext, AppHost, StartupManager)
-  Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, ShapeRenderer, ToolbarLayout, Annotation)
+  Capture/ (CaptureOverlay, ChatPanel, SelectionGeometry, SelectionChromeRenderer, FinalImageRenderer, ShapeRenderer, ToolbarLayout, Annotation)
   Ai/ (IAiProvider, AiService, AiProviderFactory, Providers/, ServerSentEvents, HttpUtil)
   Imaging/ (IImageUploader, FreeImageUploader, ImgbbUploader, ImageUploaderFactory)
   Config/ (AppConfig, SecretProtector)
