@@ -13,22 +13,14 @@ namespace AiShot.Tests;
 /// fundo e reaplica os shapes sobre um bitmap novo, com uma translação de
 /// coordenadas no meio. Um erro nessa conversão desenharia o borrão deslocado —
 /// a tela mostraria a área coberta e o arquivo salvo entregaria o conteúdo.
-/// Este teste reproduz esse caminho.
+/// O teste chama o renderizador do próprio aplicativo, e não uma cópia dele:
+/// assim uma correção no app vale para o teste, e não o contrário.
 /// </remarks>
 public class BlurNaImagemFinalTests
 {
-    /// <summary>Reproduz o que CaptureOverlay.RenderFinal faz.</summary>
-    private static Bitmap RenderizarComoFinal(Bitmap fundo, Rectangle selecao, params Shape[] formas)
-    {
-        var saida = new Bitmap(selecao.Width, selecao.Height, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(saida);
-
-        g.DrawImage(fundo, new Rectangle(0, 0, selecao.Width, selecao.Height), selecao, GraphicsUnit.Pixel);
-        g.TranslateTransform(-selecao.Left, -selecao.Top);
-        foreach (var f in formas) ShapeRenderer.Draw(g, f, fundo);
-
-        return saida;
-    }
+    /// <summary>Exporta pelo mesmo caminho que CaptureOverlay.RenderFinal usa.</summary>
+    private static Bitmap RenderizarComoFinal(Bitmap fundo, Rectangle selecao, params Shape[] formas) =>
+        FinalImageRenderer.Render(fundo, selecao, formas);
 
     /// <summary>
     /// Fundo em xadrez de um pixel, com a cor variando por faixa vertical.

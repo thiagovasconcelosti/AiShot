@@ -554,21 +554,7 @@ public sealed class CaptureOverlay : Form
     }
 
     /// <summary>Rasteriza a seleção + anotações num novo bitmap.</summary>
-    private Bitmap RenderFinal()
-    {
-        var bmp = new Bitmap(_sel.Width, _sel.Height, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.DrawImage(_background, new Rectangle(0, 0, _sel.Width, _sel.Height), _sel, GraphicsUnit.Pixel);
-
-        // A partir daqui o Graphics converte coordenadas do overlay para as do
-        // bitmap; os shapes seguem sendo desenhados em coordenadas do overlay,
-        // que são as mesmas de _background — daí o deslocamento zero na leitura
-        // dos pixels pelo borrão.
-        g.TranslateTransform(-_sel.Left, -_sel.Top);
-        foreach (var s in _anotacoes.Shapes) ShapeRenderer.Draw(g, s, _background);
-        return bmp;
-    }
+    private Bitmap RenderFinal() => FinalImageRenderer.Render(_background, _sel, _anotacoes.Shapes);
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
